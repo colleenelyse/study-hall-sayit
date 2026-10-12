@@ -10,6 +10,14 @@ The live copies are on GitHub Pages (Settings row **Pip art folder link**,
 | `outfits/pip_outfit_[occasion].png` | future outfits (not used yet; each must be designed per animation) |
 | `pip_pose_[name].png` | future still poses (waving, sleeping, reading...) |
 
+## Sheets that are not an even grid
+Add `layout: 'figures'`: the player finds each figure by its outline and numbers them left to right, row by row
+(the idle sheet has 57: rows of 11, 12, 11, 12, 11). Use `sequence: [[frame, ms], ...]` to choose the frames and how long each shows.
+
+## Priorities
+`priority: 3` with `loop: true` is the idle loop (the default). One-off animations (`priority: 1`) pause it, play once, then it resumes.
+With reduced motion turned on, Pip shows his resting picture instead of the loop.
+
 ## Adding an animation
 1. Make the sheet with a see-through background, equal cells, Pip the same size in every cell, his feet near the bottom.
 2. Name it `pip_anim_[action].webp` and put it in `animations/` on GitHub (sayit/pip/animations) and here.
