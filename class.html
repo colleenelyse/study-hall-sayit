@@ -85,7 +85,7 @@ const BD_CLOTHES = ['head', 'face', 'neck'];
 /* Pip, Study Hall's own mascot (from Colleen's reference picture, assets/mascot-reference.webp): a soft blue blob with big shiny eyes,
    eyebrows, an open smile, stubby arms and two little feet. Drawn here with gradients until her own art and animations arrive. */
 let BD_GID = 0;
-const PIP_COLORS = { blue: ['#C8D0FB', '#93A2EE', '#6D7DDA'], pink: ['#FCD3E6', '#F49AC4', '#DB6EA3'], mint: ['#C9F2DD', '#86D9AE', '#53B485'], sun: ['#FFF0B8', '#FFD45E', '#E8AE2C'], lilac: ['#E3D3FB', '#B999EE', '#8F6CD6'], peach: ['#FFDCC8', '#FFAE85', '#EE8456'], teal: ['#C7EEF2', '#7FD1DB', '#45A9B8'] };
+const PIP_COLORS = { blue: ['#C8D0FB', '#93A2EE', '#6D7DDA'], pink: ['#FCD3E6', '#F49AC4', '#DB6EA3'], mint: ['#C9F2DD', '#86D9AE', '#53B485'], sun: ['#FFF0B8', '#FFD45E', '#E8AE2C'], lilac: ['#E3D3FB', '#B999EE', '#8F6CD6'], peach: ['#FFDCC8', '#FFAE85', '#EE8456'], teal: ['#C7EEF2', '#7FD1DB', '#45A9B8'], red: ['#FBC9C6', '#F0827B', '#D2554D'], lime: ['#E2F5B8', '#B8E063', '#8DBB35'], magenta: ['#F7C8F0', '#E07AD2', '#B94CAB'], cocoa: ['#E6D2C2', '#B88B6A', '#8C6247'] };
 function pipSvg(wear, state, prog, cls, put, color) {
   const pc = PIP_COLORS[color] || PIP_COLORS.blue, g = 'pipg' + (++BD_GID), happy = state === 'happy', drop = state === 'drop', work = state === 'work';
   const c = `url(#${g})`, arm = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="9" ry="15" fill="${c}" transform="rotate(${r} ${x} ${y})"/>`;
@@ -279,7 +279,7 @@ const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
 const HOME = /^https:\/\/[a-z0-9-]+\.script\.googleusercontent\.com$/.test(String(D.o || '')) ? D.o : '';
 const KIND = D.kind && (BD_LOOK[D.kind] || /^Pip/.test(D.kind)) ? D.kind : 'Pip';
-const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }], ['Pip:sun', { neck: 'scarf' }], ['Pip:lilac', { face: 'glasses' }], ['Pip:peach', { head: 'flowers' }], ['Pip:teal', { head: 'cap' }], ['Pip:pink', { neck: 'bowtie' }], ['Pip:mint', { head: 'crown' }], ['Pip:sun', { head: 'beanie' }], ['Pip:lilac', { head: 'headphones' }]];      /* 10 friends, so the score is easy: 8 of 10 = 80% */
+const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }], ['Pip:sun', { neck: 'scarf' }], ['Pip:lilac', { face: 'glasses' }], ['Pip:peach', { head: 'flowers' }], ['Pip:teal', { head: 'cap' }], ['Pip:red', { neck: 'bowtie' }], ['Pip:lime', { head: 'crown' }], ['Pip:magenta', { head: 'beanie' }], ['Pip:cocoa', { head: 'headphones' }]];      /* 10 friends, so the score is easy: 8 of 10 = 80% */
 const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5], [70, 470, .55], [1540, 470, .55]];
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 let run = 0, thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
@@ -297,10 +297,12 @@ function paintScene() {
 /* the friends: copies of the real 3D Pip, tinted (hue-rotate). Normal face: his resting picture; excited: the laughing, eyes-closed frame of
    his dance (frame 4). There is no scared face in his art yet, so a scared friend shakes and drops. Until the art loads (or if it cannot),
    the drawn friends stand in. */
-const FRIEND_TINT = { pink: [95, 1.1, 1.05], mint: [-95, 1, 1.08], sun: [175, 1.25, 1.18], lilac: [35, 1, 1.03], peach: [150, 1.1, 1.12], teal: [-45, 1, 1.05], blue: [0, 1, 1] };
+const FRIEND_TINT = { pink: [95, 1.1, 1.05], mint: [-95, 1, 1.08], sun: [175, 1.25, 1.18], lilac: [35, 1, 1.03], peach: [150, 1.1, 1.12], teal: [-68, 1.25, 1.02], red: [125, 1.35, 1], lime: [-125, 1.15, 1.15], magenta: [65, 1.25, 1], cocoa: [160, .55, .85], blue: [0, 1, 1] };
+/* each friend's own build, so they do not all look like Pip: [width, height] compared with him (wide and round, tall and thin, little...) */
+const FRIEND_SHAPE = [[1.3, .9], [.78, 1.08], [1.12, .74], [.9, 1], [1.4, .8], [.72, 1], [1.05, .66], [1.22, 1.04], [.84, .82], [1.18, .92]];
 let FART = null; const faceT = {};
-function friendArtCut(e, i, tint) {
-  const [sx, sy, cw, ch] = e.cells[i], b = (e.boxes && e.boxes[i]) || { l: 0, t: 0, r: cw, b: ch }, w = b.r - b.l, hh = b.b - b.t, H = 300, W = Math.round(H * w / hh), c = document.createElement('canvas');
+function friendArtCut(e, i, tint, shape) {
+  const [sx, sy, cw, ch] = e.cells[i], b = (e.boxes && e.boxes[i]) || { l: 0, t: 0, r: cw, b: ch }, w = b.r - b.l, hh = b.b - b.t, H = 300, W = Math.round(H * w / hh * (shape ? shape[0] / shape[1] : 1)), c = document.createElement('canvas');
   c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(e.img, sx + b.l, sy + b.t, w, hh, 0, 0, W, H);
   /* tint only his blue body: the mouth, eyes and cheeks keep their own colours (a tinted red mouth would turn green) */
   const t = document.createElement('canvas'); t.width = W; t.height = H; const y = t.getContext('2d', { willReadFrequently: true });
@@ -313,12 +315,12 @@ function friendArtCut(e, i, tint) {
 }
 async function friendArtLoad() {
   try { const still = await pipLoad('pip/' + PIP_IDLE, null), d = pipAnimations.dance, dance = await pipLoad('pip/' + d.src, d); if (!still.ok || !dance.ok) return;
-    const out = {}; FRIENDS.forEach(f => { const col = f[0].split(':')[1] || 'blue'; if (!out[col]) out[col] = { idle: friendArtCut(still, 0, FRIEND_TINT[col] || FRIEND_TINT.blue), happy: friendArtCut(dance, 4, FRIEND_TINT[col] || FRIEND_TINT.blue) }; });
+    const out = FRIENDS.map((f, i) => { const tint = FRIEND_TINT[f[0].split(':')[1]] || FRIEND_TINT.blue, sh = FRIEND_SHAPE[i] || [1, 1]; return { idle: friendArtCut(still, 0, tint, sh), happy: friendArtCut(dance, 4, tint, sh), h: sh[1] }; });
     FART = out; FRIENDS.forEach((f, i) => friendFace(i, 'idle')); } catch (e) { FART = null; }
 }
 function friendFace(i, state, ms) { const g = $('a' + i), f = FRIENDS[i]; if (!g || !f) return; clearTimeout(faceT[i]);
-  if (FART) { const a = FART[f[0].split(':')[1] || 'blue'], pic = state === 'happy' ? a.happy : a.idle, w = 132 * pic.ar;
-    g.innerHTML = `<image href="${pic.url}" x="${(120 - w) / 2}" y="0" width="${w}" height="132" preserveAspectRatio="xMidYMax meet"/>`; }
+  if (FART) { const a = FART[i], pic = state === 'happy' ? a.happy : a.idle, hh = 132 * a.h, w = hh * pic.ar;
+    g.innerHTML = `<image href="${pic.url}" x="${(120 - w) / 2}" y="${132 - hh}" width="${w}" height="${hh}" preserveAspectRatio="xMidYMax meet"/>`; }
   else g.innerHTML = buddySvg(f[0], f[1], state).replace('<svg ', '<svg width="120" height="132" ');
   if (ms) faceT[i] = setTimeout(() => friendFace(i, 'idle'), ms); }
 /* the big Pip: the real artwork (PipAnimationPlayer), always gently moving; he dances when a friend comes, jumps and shakes when it is too loud.
