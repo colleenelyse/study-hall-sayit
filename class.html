@@ -167,7 +167,11 @@ const pipAnimations = {
   /* ILY: he raises his hand and makes the ASL I love you handshape, pink hearts float up, a happy wink, then he lowers his hand. An even 4 x 3 grid as
      drawn. anchor 'ground': feet on one line, but each frame keeps its place across (the hearts and the hand would otherwise shift him sideways) */
   ily: { label: 'ILY', src: 'animations/pip_anim_ily.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'ground', tweenMs: 60,
-    sequence: [[0, 200], [1, 150], [2, 150], [3, 200], [4, 200], [5, 200], [6, 320], [7, 200], [8, 200], [9, 200], [10, 150], [11, 300]] }
+    sequence: [[0, 200], [1, 150], [2, 150], [3, 200], [4, 200], [5, 200], [6, 320], [7, 200], [8, 200], [9, 200], [10, 150], [11, 300]] },
+  /* confetti: he claps, throws his arms up and confetti bursts out, it falls around him and settles on the ground while he laughs, then he stands
+     happy. An even 4 x 3 grid as drawn. body: measure only Pip (his biggest shape), so confetti lying on the ground is not taken for his feet */
+  confetti: { label: 'Confetti', test: true, src: 'animations/pip_anim_confetti.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', body: true, tweenMs: 70,
+    sequence: [[0, 150], [1, 180], [2, 150], [3, 160], [4, 220], [5, 220], [6, 220], [7, 220], [8, 230], [9, 230], [10, 260], [11, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'ground': feet on one line, each frame keeps its place across; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
      between two poses, so long ones show a double face: real smoothness needs more frames.
@@ -184,7 +188,7 @@ function pipLoad(src, a) {
   e.p = new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async';
     im.onload = () => { e.img = im; e.ok = true;
       try { if (lay === 'figures') { e.cells = pipFigures(im); e.boxes = e.cells.map(c => ({ l: 0, t: 0, r: c[2], b: c[3] })); }
-            else { const cols = a ? a.cols : 1, rows = a ? a.rows : 1, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, n = (a && a.inset) || 0; e.cells = []; for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) e.cells.push([q * cw + n, r * ch + n, cw - 2 * n, ch - 2 * n]); e.boxes = pipMeasure(im, e.cells); } }
+            else { const cols = a ? a.cols : 1, rows = a ? a.rows : 1, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, n = (a && a.inset) || 0; e.cells = []; for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) e.cells.push([q * cw + n, r * ch + n, cw - 2 * n, ch - 2 * n]); e.boxes = pipMeasure(im, e.cells, a && a.body); } }
       catch (er) { if (!e.cells) e.cells = [[0, 0, im.naturalWidth, im.naturalHeight]]; e.boxes = null; }
       ok(e); };
     im.onerror = () => { e.ok = false; console.warn('Pip: could not load ' + src); ok(e); };
@@ -192,13 +196,20 @@ function pipLoad(src, a) {
   return e.p;
 }
 /* Pip's outline in each cell, from pixels that are not see-through (on a small copy, so it is quick) */
-function pipMeasure(im, cells) {
+function pipMeasure(im, cells, body) {
   const c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
   return cells.map(([sx, sy, cw, ch]) => {
     const k = Math.min(1, 160 / cw), w = Math.max(1, Math.round(cw * k)), h = Math.max(1, Math.round(ch * k)); c.width = w; c.height = h;
     x.clearRect(0, 0, w, h); x.drawImage(im, sx, sy, cw, ch, 0, 0, w, h);
     const d = x.getImageData(0, 0, w, h).data; let l = w, t = h, r = -1, b = -1;
-    for (let y = 0; y < h; y++) for (let z = 0; z < w; z++) if (d[(y * w + z) * 4 + 3] > 40) { if (z < l) l = z; if (z > r) r = z; if (y < t) t = y; if (y > b) b = y; }
+    if (body) {      /* only Pip himself: the biggest solid shape, so loose pieces (confetti on the ground) do not count as his feet */
+      const seen = new Uint8Array(w * h); let best = null;
+      for (let p0 = 0; p0 < w * h; p0++) { if (seen[p0] || d[p0 * 4 + 3] <= 40) continue; const st = [p0], o = { n: 0, l: w, t: h, r: -1, b: -1 }; seen[p0] = 1;
+        while (st.length) { const p = st.pop(), z = p % w, y = (p / w) | 0; o.n++; if (z < o.l) o.l = z; if (z > o.r) o.r = z; if (y < o.t) o.t = y; if (y > o.b) o.b = y;
+          [p - 1, p + 1, p - w, p + w].forEach((q, i) => { if (q < 0 || q >= w * h || (i === 0 && z === 0) || (i === 1 && z === w - 1) || seen[q] || d[q * 4 + 3] <= 40) return; seen[q] = 1; st.push(q); }); }
+        if (!best || o.n > best.n) best = o; }
+      if (best) ({ l, t, r, b } = best);
+    } else for (let y = 0; y < h; y++) for (let z = 0; z < w; z++) if (d[(y * w + z) * 4 + 3] > 40) { if (z < l) l = z; if (z > r) r = z; if (y < t) t = y; if (y > b) b = y; }
     return r < 0 ? null : { l: l / k, t: t / k, r: (r + 1) / k, b: (b + 1) / k }; });
 }
 /* the figures on a sheet that is not an even grid: bands of rows with something in them, then the figures across each band, each cut to its outline */
