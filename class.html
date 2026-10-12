@@ -34,6 +34,7 @@
   @keyframes pipbob { 0%, 100% { transform: translateY(0) rotate(0) scale(1, 1) } 25% { transform: translateY(-1.8%) rotate(-1.6deg) scale(.99, 1.01) } 50% { transform: translateY(0) rotate(0) scale(1.01, .99) } 75% { transform: translateY(-1.2%) rotate(1.6deg) scale(.99, 1.01) } }
   .pipwrap.startle, #ppip.startle { animation: pipstartle .55s ease 2 } @keyframes pipstartle { 15% { transform: translateY(-8%) scale(.95, 1.06) } 35% { transform: translateY(0) scale(1.06, .94) translateX(-3%) } 55% { transform: translateX(3%) } 75% { transform: translateX(-2%) } }
   @media (prefers-reduced-motion: reduce) { .pipwrap, .pipwrap.startle { animation: none } }
+  #finbox { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(27, 34, 56, .35) } #finbox .card { background: #fff; border-radius: 22px; padding: 24px 28px; max-width: 460px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .25) } #finbox h2 { font: 700 1.6rem Fraunces, Georgia, serif; margin: 0 0 8px } #finbox p { margin: 0 0 16px; color: #4A5270 }
   .ring { width: 54px; height: 54px } .hidden { display: none !important }
   .bdsvg { overflow: visible } .bd-work { animation: bdsway 2.6s ease-in-out infinite; transform-origin: 60px 112px } @keyframes bdsway { 25% { transform: rotate(-3deg) } 75% { transform: rotate(3deg) } }
   .bdeyes { animation: bdblink 4.5s infinite; transform-origin: 60px 52px } @keyframes bdblink { 0%, 95%, 100% { transform: scaleY(1) } 97% { transform: scaleY(.1) } }
@@ -45,7 +46,7 @@
 <svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
 <div class="bar top"><div class="pill"><div class="small" id="cls">Class sidekick</div><div class="big"><span id="mins">0</span> calm min</div></div>
   <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 10 friends here</b></div></div>
-  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><div class="pill"><div class="small">Score</div><div class="big" id="score">–</div><div class="small" id="scoren"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
+  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><div class="pill"><div class="small">Score</div><div class="big" id="score">–</div><div class="small" id="scoren"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button id="end" title="Finish quiet time">Finish</button></div>
 <div id="msg" role="status"></div>
 <div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><span class="small grow" id="mic"></span><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
   <div class="track"><div class="fill" id="fill"></div><div class="mask" id="mask"></div><div class="thr" id="thr"></div></div><input type="range" id="thrin" min="10" max="95" value="60" aria-label="Too loud line"></div></div>
@@ -127,116 +128,149 @@ function buddySvg(kind, wear, state, prog, cls) {
 /* Pip the Sprite's player, copied from Study Hall (Index.html); his files are in pip/ beside this page */
 const S = { set: { pipArt: 'pip/' } };
 const pipAnimations = {
-  dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, anchor: 'feet', tween: .3, motion: 'bounce' }
-  /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot (the dance sheet's rows sit at different heights);
-     use anchor: 'none' for an animation whose jumps are drawn into the frames on purpose.
-     tween: the part of each frame's turn spent dissolving into the next (0 = none, 0.3 = the default, about 1/20 s at 6 frames a second).
-     motion 'bounce': smooth movement drawn over the frames at full screen speed (a hop on each frame, a squash on landing, a stretch in the air and a
-     gentle rock), so a sheet with few frames feels fluid; leave it out to show the frames exactly as drawn. A dissolve cannot move Pip between two poses, so long ones show a double face: real smoothness needs more frames in the sheet (24 a second is ideal) */
+  /* priority 3: the default loop, playing whenever nothing else does. layout 'figures': the sheet is not an even grid, so each figure is found
+     by its outline and numbered left to right, row by row (0 to 56 in this sheet). sequence: [frame, how long it shows in ms], chosen so
+     each change is small: breathing, a blink, a look one way and the other, a look up, a smile, settling (about 12 s). Its side and back
+     views (frames 11 to 22 and 34 to 45) are left out: turning to them would jump. */
+  idle: { src: 'animations/pip_anim_idle.webp', layout: 'figures', loop: true, priority: 3, anchor: 'feet', tweenMs: 140,
+    sequence: [[0, 900], [1, 700], [2, 800], [0, 600], [10, 110], [0, 700], [9, 800], [7, 900], [0, 250], [8, 900], [0, 250], [49, 700], [0, 500], [56, 700], [6, 600], [3, 300], [4, 300], [0, 800], [1, 700], [10, 110], [0, 600]] },
+  /* priority 1: special moments. They pause the idle loop, play once, and the loop comes back. */
+  dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' }
+  /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
+     tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
+     between two poses, so long ones show a double face: real smoothness needs more frames.
+     motion 'bounce': smooth movement drawn over the frames (a hop on each frame, squash and stretch, a gentle rock). */
 };
 const PIP_IDLE = 'pip_idle.webp';
 const pipBase = () => { const b = (S.set && S.set.pipArt) || ''; return b && !/\/$/.test(b) ? b + '/' : b; };
 const pipReducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
-/* one image, loaded once and shared: { img, ok, boxes } (boxes: Pip's outline in each cell, measured from the transparency) */
+/* one image, loaded once and shared: { img, ok, cells: [[x, y, w, h]...], boxes: Pip's outline inside each cell } */
 const PIP_IMG = {};
-function pipLoad(src, cols, rows) {
-  const key = src + '|' + cols + 'x' + rows; if (PIP_IMG[key]) return PIP_IMG[key].p;
-  const e = PIP_IMG[key] = { ok: false, boxes: null };
+function pipLoad(src, a) {
+  const lay = a && a.layout === 'figures' ? 'figures' : (a ? a.cols + 'x' + a.rows : '1x1'), key = src + '|' + lay; if (PIP_IMG[key]) return PIP_IMG[key].p;
+  const e = PIP_IMG[key] = { ok: false, cells: null, boxes: null };
   e.p = new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async';
-    im.onload = () => { e.img = im; e.ok = true; try { e.boxes = pipMeasure(im, cols, rows); } catch (er) { e.boxes = null; } ok(e); };
+    im.onload = () => { e.img = im; e.ok = true;
+      try { if (lay === 'figures') { e.cells = pipFigures(im); e.boxes = e.cells.map(c => ({ l: 0, t: 0, r: c[2], b: c[3] })); }
+            else { const cols = a ? a.cols : 1, rows = a ? a.rows : 1, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows; e.cells = []; for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) e.cells.push([q * cw, r * ch, cw, ch]); e.boxes = pipMeasure(im, e.cells); } }
+      catch (er) { if (!e.cells) e.cells = [[0, 0, im.naturalWidth, im.naturalHeight]]; e.boxes = null; }
+      ok(e); };
     im.onerror = () => { e.ok = false; console.warn('Pip: could not load ' + src); ok(e); };
     im.src = src; });
   return e.p;
 }
-/* Pip's outline in each cell: left, top, right, bottom and centre, from pixels that are not see-through (on a small copy, so it is quick) */
-function pipMeasure(im, cols, rows) {
-  const cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, k = Math.min(1, 160 / cw), w = Math.max(1, Math.round(cw * k)), h = Math.max(1, Math.round(ch * k)), c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true }), out = [];
-  c.width = w; c.height = h;
-  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
-    x.clearRect(0, 0, w, h); x.drawImage(im, q * cw, r * ch, cw, ch, 0, 0, w, h);
-    const d = x.getImageData(0, 0, w, h).data; let l = w, t = h, rr = -1, b = -1;
-    for (let y = 0; y < h; y++) for (let z = 0; z < w; z++) if (d[(y * w + z) * 4 + 3] > 40) { if (z < l) l = z; if (z > rr) rr = z; if (y < t) t = y; if (y > b) b = y; }
-    out.push(rr < 0 ? null : { l: l / k, t: t / k, r: (rr + 1) / k, b: (b + 1) / k });
-  }
+/* Pip's outline in each cell, from pixels that are not see-through (on a small copy, so it is quick) */
+function pipMeasure(im, cells) {
+  const c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
+  return cells.map(([sx, sy, cw, ch]) => {
+    const k = Math.min(1, 160 / cw), w = Math.max(1, Math.round(cw * k)), h = Math.max(1, Math.round(ch * k)); c.width = w; c.height = h;
+    x.clearRect(0, 0, w, h); x.drawImage(im, sx, sy, cw, ch, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h).data; let l = w, t = h, r = -1, b = -1;
+    for (let y = 0; y < h; y++) for (let z = 0; z < w; z++) if (d[(y * w + z) * 4 + 3] > 40) { if (z < l) l = z; if (z > r) r = z; if (y < t) t = y; if (y > b) b = y; }
+    return r < 0 ? null : { l: l / k, t: t / k, r: (r + 1) / k, b: (b + 1) / k }; });
+}
+/* the figures on a sheet that is not an even grid: bands of rows with something in them, then the figures across each band, each cut to its outline */
+function pipFigures(im) {
+  const W = im.naturalWidth, H = im.naturalHeight, k = Math.min(1, 900 / W), w = Math.round(W * k), h = Math.round(H * k), c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
+  c.width = w; c.height = h; x.drawImage(im, 0, 0, w, h); const d = x.getImageData(0, 0, w, h).data, A = (px, py) => d[(py * w + px) * 4 + 3] > 60;
+  const runs = (n, has) => { const out = []; let s = -1; for (let i = 0; i < n; i++) { const on = has(i); if (on && s < 0) s = i; if (!on && s >= 0) { out.push([s, i - 1]); s = -1; } } if (s >= 0) out.push([s, n - 1]); return out; };
+  const bands = runs(h, y => { let m = 0; for (let px = 0; px < w; px++) if (A(px, y)) m++; return m > 1; }).filter(b => b[1] - b[0] > h * .05), out = [];
+  bands.forEach(([y0, y1]) => runs(w, px => { let m = 0; for (let py = y0; py <= y1; py++) if (A(px, py)) m++; return m > 1; }).filter(r => r[1] - r[0] > w * .015).forEach(([a, b]) => {
+    let t = y1, bt = y0; for (let py = y0; py <= y1; py++) for (let px = a; px <= b; px++) if (A(px, py)) { if (py < t) t = py; if (py > bt) bt = py; }
+    out.push([a / k, t / k, (b - a + 1) / k, (bt - t + 1) / k]); }));
   return out;
 }
-/* bounce motion for one moment: ph = how far through this frame (0 to 1), i = which frame, t = how far through the whole animation.
-   Each frame is one hop: squashed as it lands and takes off, stretched at the top; the body rocks left and right on alternate hops;
-   everything eases in at the start and out at the end, so it begins and ends exactly on the resting pose. */
+/* bounce motion for one moment: ph = how far through this frame (0 to 1), i = which frame, t = how far through the whole animation */
 function pipBounce(ph, i, t) {
   const env = Math.min(1, t * 6, (1 - t) * 6), up = Math.sin(Math.PI * ph), land = Math.cos(Math.PI * 2 * ph);
   return { dy: -.045 * up * env, sx: 1 + .045 * Math.max(0, land) * env - .02 * up * env, sy: 1 - .05 * Math.max(0, land) * env + .03 * up * env, rot: (i % 2 ? 1 : -1) * .05 * Math.sin(Math.PI * ph) * env };
 }
+/* the steps of an animation: [frame, ms] from its sequence, or every frame in order sharing durationMs */
+function pipSteps(a) { if (a.sequence) return a.sequence.map(s => ({ f: s[0], ms: Math.max(16, s[1]) })); const n = a.frameCount || (a.cols * a.rows), ms = Math.max(100, a.durationMs || 1000) / n; return Array.from({ length: n }, (_, i) => ({ f: i, ms })); }
 class PipAnimationPlayer {
-  /* canvas: where Pip is drawn (it keeps Pip's proportions, sharp on any screen); opts.label for screen readers */
+  /* canvas: where Pip is drawn (sharp on any screen, proportions kept). Pip starts in his idle loop (or his resting picture when the device
+     asks for reduced motion, or the loop is missing); play(name) runs a special animation over it. */
   constructor(canvas, opts) {
-    this.c = canvas; this.x = canvas.getContext('2d'); this.base = (opts && opts.base) || pipBase(); this.raf = 0; this.playing = null; this.idle = null; this.ref = null;
+    this.c = canvas; this.x = canvas.getContext('2d'); this.base = (opts && opts.base) || pipBase(); this.raf = 0; this.playing = null; this.still = null; this.ref = null; this.loopE = null;
     canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', (opts && opts.label) || 'Pip the Sprite');
     this.ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => this.redraw()) : null; if (this.ro) this.ro.observe(canvas);
     this.ready = this.load();
   }
   async load() {
-    this.idle = await pipLoad(this.base + PIP_IDLE, 1, 1);
-    const d = pipAnimations.dance; if (d) this.ref = await pipLoad(this.base + d.src, d.cols, d.rows);      /* the dance sets Pip's size, so the resting pose matches it */
+    this.still = await pipLoad(this.base + PIP_IDLE, null);
+    const d = pipAnimations.dance; if (d) this.ref = await pipLoad(this.base + d.src, d);      /* the dance sets Pip's size, so every image matches it */
+    const i = pipAnimations.idle; if (i) this.loopE = await pipLoad(this.base + i.src, i);
+    Object.keys(pipAnimations).forEach(k => pipLoad(this.base + pipAnimations[k].src, pipAnimations[k]));      /* preload the rest */
     this.showIdle();
-    Object.keys(pipAnimations).forEach(k => { const a = pipAnimations[k]; pipLoad(this.base + a.src, a.cols, a.rows); });      /* preload the rest */
   }
   size() { const r = this.c.getBoundingClientRect(), dpr = Math.min(3, window.devicePixelRatio || 1), w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr)); if (this.c.width !== w || this.c.height !== h) { this.c.width = w; this.c.height = h; } return { w, h }; }
-  /* where one cell of a sheet goes, so Pip's body is the same height on screen for every image and his feet rest on the same line */
-  place(e, cols, rows, i, anchor, w, h) {
-    const im = e.img, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, sx = (i % cols) * cw, sy = Math.floor(i / cols) * ch;
-    const ok = bs => bs ? bs.filter(Boolean) : [], med = a => a.length ? a.slice().sort((p, q) => p - q)[a.length >> 1] : 0;
-    /* one size for Pip's body everywhere (the dance sets it); it fits the box both ways, with room for a hop and a stretch */
-    const R = this.ref && this.ref.ok ? this.ref : e, rb = ok(R.boxes), rH = med(rb.map(b => b.b - b.t)) || R.img.naturalHeight * .8 / (R === this.ref ? 3 : 1), rW = rb.length ? Math.max(...rb.map(b => b.r - b.l)) : rH;
+  /* where one frame goes: Pip's body the same height on screen in every sheet (set by the dance), inside the box both ways, feet on one line */
+  place(e, i, anchor, w, h) {
+    const cell = e.cells[i] || e.cells[0], [sx, sy, cw, ch] = cell, ok = bs => bs ? bs.filter(Boolean) : [], med = a => a.length ? a.slice().sort((p, q) => p - q)[a.length >> 1] : 0;
+    const R = this.ref && this.ref.ok ? this.ref : e, rb = ok(R.boxes), rH = med(rb.map(b => b.b - b.t)) || R.cells[0][3] * .8, rW = rb.length ? Math.max(...rb.map(b => b.r - b.l)) : rH;
     let k = Math.min(h * .82 / rH, w * .9 / rW);
-    if (e !== R) { const eb = ok(e.boxes), eH = med(eb.map(b => b.b - b.t)), eW = eb.length ? Math.max(...eb.map(b => b.r - b.l)) : 0; if (eH) k = k * rH / eH; if (eW) k = Math.min(k, w * .9 / eW); }      /* another image (the resting pose): the same body height, and still inside the box */
+    if (e !== R) { const eb = ok(e.boxes), eH = med(eb.map(b => b.b - b.t)), eW = eb.length ? Math.max(...eb.map(b => b.r - b.l)) : 0; if (eH) k = k * rH / eH; if (eW) k = Math.min(k, w * .9 / eW); }
     const bx = e.boxes && e.boxes[i];
     const dx = bx && anchor !== 'none' ? w / 2 - ((bx.l + bx.r) / 2) * k : (w - cw * k) / 2, dy = bx && anchor !== 'none' ? h * .96 - bx.b * k : h * .96 - ch * k;
-    return [im, sx, sy, cw, ch, dx, dy, cw * k, ch * k];
+    return [e.img, sx, sy, cw, ch, dx, dy, cw * k, ch * k];
   }
-  /* draw a frame; with b and f (0 to 1), dissolve into frame b: the first half fades b in over a, the second half fades a out over b,
-     so Pip never turns see-through midway (the in-between frames that smooth a sheet with few drawings) */
-  draw(e, cols, rows, i, anchor, b, f, mo) {
+  /* draw frame i of e; with B ({ e, i, anchor }) and f (0 to 1), dissolve into B: the first half fades B in over A, the second fades A out
+     over B, so Pip never turns see-through; mo: bounce motion, pivoting on his feet */
+  draw(e, i, anchor, B, f, mo) {
     const { w, h } = this.size(), x = this.x; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, w, h); if (!e || !e.ok) return;
     x.imageSmoothingQuality = 'high'; x.globalAlpha = 1;
-    if (mo) { const fx = w / 2, fy = h * .97; x.translate(fx, fy + mo.dy * h); x.rotate(mo.rot); x.scale(mo.sx, mo.sy); x.translate(-fx, -fy); }      /* the motion pivots on Pip's feet */
-    if (!b || !(f > 0)) { x.drawImage(...this.place(e, cols, rows, i, anchor, w, h)); x.setTransform(1, 0, 0, 1, 0, 0); return; }
-    const A = this.place(e, cols, rows, i, anchor, w, h), B = this.place(b.e, b.cols, b.rows, b.i, b.anchor, w, h), ease = f * f * (3 - 2 * f);
-    if (ease < .5) { x.drawImage(...A); x.globalAlpha = ease * 2; x.drawImage(...B); }
-    else { x.drawImage(...B); x.globalAlpha = (1 - ease) * 2; x.drawImage(...A); }
+    if (mo) { const fx = w / 2, fy = h * .96; x.translate(fx, fy + mo.dy * h); x.rotate(mo.rot); x.scale(mo.sx, mo.sy); x.translate(-fx, -fy); }
+    const PA = this.place(e, i, anchor, w, h);
+    if (!B || !B.e || !B.e.ok || !(f > 0)) x.drawImage(...PA);
+    else { const PB = this.place(B.e, B.i, B.anchor, w, h), ease = f * f * (3 - 2 * f);
+      if (ease < .5) { x.drawImage(...PA); x.globalAlpha = ease * 2; x.drawImage(...PB); } else { x.drawImage(...PB); x.globalAlpha = (1 - ease) * 2; x.drawImage(...PA); } }
     x.globalAlpha = 1; x.setTransform(1, 0, 0, 1, 0, 0);
   }
-  showIdle() { cancelAnimationFrame(this.raf); this.raf = 0; this.playing = null; this.draw(this.idle, 1, 1, 0, 'feet'); }
-  redraw() { if (!this.playing) this.showIdle(); }
+  /* the loop can play here: its sheet loaded and the device does not ask for reduced motion */
+  canLoop() { return !!(this.loopE && this.loopE.ok && pipAnimations.idle && !pipReducedMotion()); }
+  /* Pip at rest: the idle loop, or his resting picture */
+  showIdle() { cancelAnimationFrame(this.raf); this.raf = 0; this.playing = null;
+    if (this.canLoop()) this.run(pipAnimations.idle, this.loopE, null); else this.draw(this.still, 0, 'feet'); }
+  redraw() { if (!this.raf) this.showIdle(); }
   stop() { if (this.playing) { const p = this.playing; this.showIdle(); p.done(false); } }
-  /* play an animation from pipAnimations: resolves true when it finishes, false if stopped or missing. A second play while one runs is ignored.
+  /* run an animation's steps on the canvas; when a one-off finishes it dissolves into the idle loop's first frame (or the resting picture), then done() */
+  run(a, e, done) {
+    cancelAnimationFrame(this.raf);
+    const steps = pipSteps(a), total = steps.reduce((s, x) => s + x.ms, 0), out = a.loop ? 0 : 140, rest = this.canLoop() ? { e: this.loopE, i: pipSteps(pipAnimations.idle)[0].f, anchor: pipAnimations.idle.anchor } : { e: this.still, i: 0, anchor: 'feet' };
+    let t0 = null;
+    const tick = now => {
+      if (t0 === null) t0 = now;                                                          /* the clock starts with the first frame drawn (and pauses with the tab: requestAnimationFrame stops in hidden tabs) */
+      let el = now - t0;
+      if (!a.loop && el >= total + out) { this.raf = 0; done && done(); return; }
+      if (!a.loop && el >= total) { const g = (el - total) / out, last = steps[steps.length - 1].f; this.draw(e, last, a.anchor, rest, g, a.motion === 'bounce' ? { dy: 0, sx: 1 + .03 * (1 - g), sy: 1 - .03 * (1 - g), rot: 0 } : null); this.raf = requestAnimationFrame(tick); return; }
+      if (a.loop) el %= total;
+      let s = 0, acc = 0; while (s < steps.length - 1 && acc + steps[s].ms <= el) acc += steps[s++].ms;
+      const st = steps[s], ph = (el - acc) / st.ms, nx = s + 1 < steps.length ? steps[s + 1] : a.loop ? steps[0] : null;
+      const win = a.tweenMs != null ? Math.min(st.ms * .6, a.tweenMs) : st.ms * (a.tween == null ? .3 : a.tween), f = nx && win > 0 ? Math.max(0, ((el - acc) - (st.ms - win)) / win) : 0;
+      this.draw(e, st.f, a.anchor, f > 0 ? { e, i: nx.f, anchor: a.anchor } : null, f, a.motion === 'bounce' ? pipBounce(ph, s, el / total) : null);
+      this.raf = requestAnimationFrame(tick); };
+    this.raf = requestAnimationFrame(tick);
+  }
+  /* a special animation: it pauses the idle loop, plays once, and Pip goes back to idle. Resolves true when it finishes, false if stopped or
+     missing. One at a time: a request while another plays is ignored, unless it matters more (a lower priority number), which takes over.
      opts.user: started by a click (it plays even when the device asks for reduced motion; automatic ones do not) */
   async play(name, opts) {
     const a = pipAnimations[name]; if (!a) { console.warn('Pip: no animation called ' + name); return false; }
-    if (this.playing) return this.playing.promise;                                       /* busy at once, before anything loads: no two at a time */
+    if (a.loop) { this.showIdle(); return true; }
+    if (this.playing) { if ((a.priority || 1) >= (this.playing.priority || 1)) return this.playing.promise; const old = this.playing; this.playing = null; old.done(false); }
     if (pipReducedMotion() && !(opts && opts.user)) return false;
-    let done; const promise = new Promise(ok => { done = ok; }), me = this.playing = { promise, done };
+    let done; const promise = new Promise(ok => { done = ok; }), me = this.playing = { promise, done, priority: a.priority || 1 };
     await this.ready;
-    const e = await pipLoad(this.base + a.src, a.cols, a.rows);
-    if (this.playing !== me) return promise;                                             /* stopped while loading */
-    if (!e.ok) { this.playing = null; done(false); return promise; }
-    const n = Math.min(a.frameCount || a.cols * a.rows, a.cols * a.rows), dur = Math.max(100, a.durationMs || 1000), tw = a.tween == null ? .3 : Math.max(0, Math.min(1, a.tween)), out = a.loop ? 0 : 140; let t0 = null;
-    const cell = j => ({ e, cols: a.cols, rows: a.rows, i: j, anchor: a.anchor }), rest = { e: this.idle, cols: 1, rows: 1, i: 0, anchor: 'feet' };
-    const tick = now => {
-      if (t0 === null) t0 = now;                                                          /* the clock starts with the first frame drawn */
-      const el = now - t0;
-      if (!a.loop && el >= dur + out) { this.showIdle(); done(true); return; }
-      if (!a.loop && el >= dur) { const g = (el - dur) / out; this.draw(e, a.cols, a.rows, n - 1, a.anchor, this.idle && this.idle.ok ? rest : null, g, a.motion === 'bounce' ? { dy: 0, sx: 1 + .03 * (1 - g), sy: 1 - .03 * (1 - g), rot: 0 } : null); this.raf = requestAnimationFrame(tick); return; }      /* the last frame dissolves back into the resting pose */
-      const pos = ((el % dur) / dur) * n, i = Math.min(n - 1, Math.floor(pos)), ph = pos - i, nx = i + 1 < n ? i + 1 : a.loop ? 0 : -1;
-      const f = tw && nx >= 0 ? Math.max(0, (ph - (1 - tw)) / tw) : 0;                     /* the frame for the time passed, dissolving into the next for the last part of its turn */
-      this.draw(e, a.cols, a.rows, i, a.anchor, f > 0 ? cell(nx) : null, f, a.motion === 'bounce' ? pipBounce(ph, i, el / dur) : null);
-      this.raf = requestAnimationFrame(tick); };
-    this.raf = requestAnimationFrame(tick);
+    const e = await pipLoad(this.base + a.src, a);
+    if (this.playing !== me) return promise;
+    if (!e.ok) { this.playing = null; this.showIdle(); done(false); return promise; }
+    this.run(a, e, () => { if (this.playing === me) { this.showIdle(); done(true); } });
     return promise;
   }
-  destroy() { this.stop(); if (this.ro) this.ro.disconnect(); }
+  destroy() { cancelAnimationFrame(this.raf); this.raf = 0; if (this.playing) { this.playing.done(false); this.playing = null; } if (this.ro) this.ro.disconnect(); }
 }
 
+delete pipAnimations.idle;      /* the projector keeps Pip's resting picture until his idle sheet matches the rest of his art */
 /* ── the page ── */
 const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
@@ -255,16 +289,31 @@ function paintScene() {
   $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="575" y="300" width="450" height="400"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
 }
-/* a friend's face: excited when they come out, scared just before they drop down, normal otherwise (drawn, no animation files) */
-const faceT = {};
+/* the friends: copies of the real 3D Pip, tinted (hue-rotate). Normal face: his resting picture; excited: the laughing, eyes-closed frame of
+   his dance (frame 4). There is no scared face in his art yet, so a scared friend shakes and drops. Until the art loads (or if it cannot),
+   the drawn friends stand in. */
+const FRIEND_TINT = { pink: [95, 1.1, 1.05], mint: [-95, 1, 1.08], sun: [175, 1.25, 1.18], lilac: [35, 1, 1.03], peach: [150, 1.1, 1.12], teal: [-45, 1, 1.05], blue: [0, 1, 1] };
+let FART = null; const faceT = {};
+function friendArtCut(e, i, tint) {
+  const [sx, sy, cw, ch] = e.cells[i], b = (e.boxes && e.boxes[i]) || { l: 0, t: 0, r: cw, b: ch }, w = b.r - b.l, hh = b.b - b.t, H = 300, W = Math.round(H * w / hh), c = document.createElement('canvas');
+  c.width = W; c.height = H; const x = c.getContext('2d'); x.filter = 'hue-rotate(' + tint[0] + 'deg) saturate(' + tint[1] + ') brightness(' + tint[2] + ')'; x.drawImage(e.img, sx + b.l, sy + b.t, w, hh, 0, 0, W, H);
+  return { url: c.toDataURL('image/png'), ar: W / H };
+}
+async function friendArtLoad() {
+  try { const still = await pipLoad('pip/' + PIP_IDLE, null), d = pipAnimations.dance, dance = await pipLoad('pip/' + d.src, d); if (!still.ok || !dance.ok) return;
+    const out = {}; FRIENDS.forEach(f => { const col = f[0].split(':')[1] || 'blue'; if (!out[col]) out[col] = { idle: friendArtCut(still, 0, FRIEND_TINT[col] || FRIEND_TINT.blue), happy: friendArtCut(dance, 4, FRIEND_TINT[col] || FRIEND_TINT.blue) }; });
+    FART = out; FRIENDS.forEach((f, i) => friendFace(i, 'idle')); } catch (e) { FART = null; }
+}
 function friendFace(i, state, ms) { const g = $('a' + i), f = FRIENDS[i]; if (!g || !f) return; clearTimeout(faceT[i]);
-  g.innerHTML = buddySvg(f[0], f[1], state).replace('<svg ', '<svg width="120" height="132" ');
+  if (FART) { const a = FART[f[0].split(':')[1] || 'blue'], pic = state === 'happy' ? a.happy : a.idle, w = 132 * pic.ar;
+    g.innerHTML = `<image href="${pic.url}" x="${(120 - w) / 2}" y="0" width="${w}" height="132" preserveAspectRatio="xMidYMax meet"/>`; }
+  else g.innerHTML = buddySvg(f[0], f[1], state).replace('<svg ', '<svg width="120" height="132" ');
   if (ms) faceT[i] = setTimeout(() => friendFace(i, 'idle'), ms); }
 /* the big Pip: the real artwork (PipAnimationPlayer), always gently moving; he dances when a friend comes, jumps and shakes when it is too loud.
    If his files cannot load, the drawn Pip stands in. */
 let PIPP = null, pipReal = false;
 function pipStart() { const c = $('pipc'); if (!c) return; PIPP = new PipAnimationPlayer(c, { base: 'pip/', label: 'Pip the Sprite' });
-  PIPP.ready.then(() => { pipReal = !!(PIPP.idle && PIPP.idle.ok); $('pip').style.display = pipReal ? 'none' : ''; $('pipfo').style.display = pipReal ? '' : 'none'; paintPip(); }); }
+  PIPP.ready.then(() => { pipReal = !!(PIPP.still && PIPP.still.ok); $('pip').style.display = pipReal ? 'none' : ''; $('pipfo').style.display = pipReal ? '' : 'none'; paintPip(); }); }
 function paintPip() {
   if (pipReal) {
     const w = $('pipwrap'); if (w) { w.classList.toggle('startle', mood === 'drop'); }
@@ -340,13 +389,19 @@ $('pop').onclick = () => popOut();
 $('full').onclick = () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) {} };
 $('thrin').oninput = e => { thr = +e.target.value; store('cs-thr', thr); $('thr').style.left = thr + '%'; };
 $('every').onchange = e => { every = +e.target.value; store('cs-every', every); show(); };
-$('end').onclick = async () => { running = false; setMood('happy'); show(); $('end').disabled = true; say('Sending ' + Math.floor(calm / 60) + ' calm minutes to Study Hall…', 60000);
+function finishAsk() {
+  const sc = score(), box = document.createElement('div'); box.id = 'finbox';
+  box.innerHTML = `<div class="card"><h2>Finish quiet time?</h2><p>The class kept <b>${Math.floor(calm / 60)} calm ${Math.floor(calm / 60) === 1 ? 'minute' : 'minutes'}</b>${sc.could ? `, score <b>${sc.pct}% \u00b7 ${sc.letter}</b>` : ''}. ${HOME && window.opener ? 'Rewards go out in Study Hall.' : ''}</p><div class="row" style="justify-content:center"><button class="main" id="finyes">Finish</button><button id="finno">Keep going</button></div></div>`;
+  document.body.appendChild(box); $('finno').onclick = () => box.remove(); $('finyes').onclick = () => { box.remove(); finishNow(); };
+}
+$('end').onclick = () => finishAsk();
+const finishNow = async () => { running = false; setMood('happy'); show(); $('end').disabled = true; say('Sending ' + Math.floor(calm / 60) + ' calm minutes to Study Hall…', 60000);
   const sc = score(), fin = sc.could ? 'Final score: ' + outN + ' of ' + sc.could + ' friends, ' + sc.pct + '% (' + sc.letter + '). ' : '';
   const r = await report(true); $('end').disabled = false;
   if (r) { say(fin + (r.msg || 'Done!'), 20000); $('end').textContent = 'Close'; $('end').onclick = () => window.close(); }
   else say(HOME && window.opener ? 'Study Hall did not answer. Keep its tab open, or click End quiet time on the Study Sidekick page there.' : 'Open this page from Study Sidekick in Study Hall to give rewards. ' + fin + Math.floor(calm / 60) + ' calm minutes.', 20000); };
 addEventListener('beforeunload', e => { if (running && calm > 30) { report(false); e.preventDefault(); e.returnValue = ''; } });
-$('thr').style.left = thr + '%'; paintScene(); pipStart(); show();
+$('thr').style.left = thr + '%'; paintScene(); pipStart(); friendArtLoad(); show();
 </script>
 </body>
 </html>
