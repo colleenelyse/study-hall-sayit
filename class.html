@@ -283,6 +283,8 @@ const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }],
 const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5], [70, 470, .55], [1540, 470, .55]];
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 let run = 0, thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
+/* the order friends come out in: shuffled fresh each time the page opens */
+const ORDER = Array.from({ length: FRIENDS.length }, (_, i) => i); for (let i = ORDER.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ORDER[i], ORDER[j]] = [ORDER[j], ORDER[i]]; }
 $('cls').textContent = D.cls && D.cls !== '*' ? D.cls : D.cls === '*' ? 'All classes' : 'Class sidekick'; $('thrin').value = thr; $('every').value = String(every);
 function bush(x, y, s) { return `<g transform="translate(${x} ${y}) scale(${s})"><ellipse cx="-70" cy="20" rx="70" ry="50" fill="#4F9D4A"/><ellipse cx="60" cy="18" rx="74" ry="52" fill="#58A852"/><ellipse cx="-5" cy="-10" rx="80" ry="62" fill="#63B65C"/><ellipse cx="20" cy="40" rx="120" ry="38" fill="#4F9D4A"/><circle cx="-30" cy="-30" r="8" fill="#F7A8C8"/><circle cx="40" cy="-14" r="7" fill="#FFE07A"/></g>`; }
 function paintScene() {
@@ -290,7 +292,7 @@ function paintScene() {
     <path d="M0 520Q300 400 620 480T1200 450T1600 500V900H0z" fill="#A9D98A"/><path d="M0 600Q400 520 800 580T1600 560V900H0z" fill="#8FCB70"/><ellipse cx="800" cy="800" rx="900" ry="140" fill="#7DBE5E"/>`;
   const friends = SPOTS.map((p, i) => [p, i]).sort((u, v) => u[0][1] - v[0][1]).map(([p, i]) => { const f = FRIENDS[i];      /* back to front: a friend lower on the hill stands in front of the bushes behind it */ return `<g transform="translate(${p[0] - 60 * p[2] * 1.4} ${p[1] - 188 * p[2]}) scale(${p[2] * 1.4})"><g class="ani" id="a${i}">${buddySvg(f[0], f[1], 'idle').replace('<svg ', '<svg width="120" height="132" ')}</g></g>${bush(p[0], p[1], p[2])}`; }).join('');
   $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="575" y="300" width="450" height="400"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
-  paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
+  paintPip(); for (let i = 0; i < outN; i++) $('a' + ORDER[i]).classList.add('out');
 }
 /* the friends: copies of the real 3D Pip, tinted (hue-rotate). Normal face: his resting picture; excited: the laughing, eyes-closed frame of
    his dance (frame 4). There is no scared face in his art yet, so a scared friend shakes and drops. Until the art loads (or if it cannot),
@@ -352,7 +354,7 @@ let msgT = 0; function say(t, ms) { const m = $('msg'); m.textContent = t; m.cla
 /* the score: friends out of the friends there has been time for (a new friend every few calm seconds), as a % and a letter */
 function score() { const could = Math.min(FRIENDS.length, Math.floor(run / every)), pct = could ? Math.round(100 * Math.min(outN, could) / could) : 100;
   return { could, pct, letter: pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F' }; }
-function show() { if (MINI) { const d = MINI.document, m = d.getElementById('pmins'); if (m) { m.textContent = Math.floor(calm / 60); d.getElementById('pdots').innerHTML = FRIENDS.map((f, i) => `<i class="${i < outN ? 'on' : ''}" style="--c:${(PIP_COLORS[f[0].split(':')[1]] || PIP_COLORS.blue)[1]}"></i>`).join(''); d.getElementById('pthr').style.left = thr + '%'; d.getElementById('ppause').textContent = running ? 'Pause' : 'Resume'; } }
+function show() { if (MINI) { const d = MINI.document, m = d.getElementById('pmins'); if (m) { m.textContent = Math.floor(calm / 60); d.getElementById('pdots').innerHTML = ORDER.map(n => FRIENDS[n]).map((f, i) => `<i class="${i < outN ? 'on' : ''}" style="--c:${(PIP_COLORS[f[0].split(':')[1]] || PIP_COLORS.blue)[1]}"></i>`).join(''); d.getElementById('pthr').style.left = thr + '%'; d.getElementById('ppause').textContent = running ? 'Pause' : 'Resume'; } }
   $('mins').textContent = Math.floor(calm / 60); { const sc = score(); $('score').textContent = sc.could ? sc.pct + '% · ' + sc.letter : '–'; $('scoren').textContent = sc.could ? outN + ' of ' + sc.could + ' friends' : 'Starts with the first friend'; } $('out').textContent = outN + ' of ' + FRIENDS.length + ' friends here'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
 /* the room's volume, 0 to 100, from the microphone (no recording: only the loudness of each moment is measured) */
 async function micOn() {
@@ -372,7 +374,7 @@ async function micOn() {
 }
 function meterPaint() { $('fill').style.width = lvl + '%'; $('mask').style.width = (100 - lvl) + '%'; if (MINI) { const f = MINI.document.getElementById('pfill'); if (f) { f.style.width = lvl + '%'; f.style.background = lvl > thr ? '#F07B7B' : lvl > thr * .8 ? '#FFD66B' : '#7ED69B'; } } }
 function tooLoud() { lastHide = Date.now(); streak = 0; $('meterbox').classList.remove('loud'); void $('meterbox').offsetWidth; $('meterbox').classList.add('loud'); setMood('drop', 2500);
-  if (outN > 0) { outN--; const k = outN, a = $('a' + k); friendFace(k, 'drop'); a.classList.add('scared');      /* a scared face, a little shake, then down behind the bush */
+  if (outN > 0) { outN--; const k = ORDER[outN], a = $('a' + k); friendFace(k, 'drop'); a.classList.add('scared');      /* a scared face, a little shake, then down behind the bush */
     setTimeout(() => { a.classList.remove('scared'); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => { a.classList.remove('hide'); friendFace(k, 'idle'); }, 450); }, 650); say('Too loud! A friend got scared and hid.'); } else say('Too loud! Shh…'); show(); }
 setInterval(() => { if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle'); }, 500);
 /* once a second of audio time (from the microphone callback, so it keeps counting in the background) */
@@ -381,7 +383,7 @@ function step() {
   if (!running) return;
   run++;      /* running seconds: how many friends could be out by now */
   if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
-  if (streak >= every && outN < FRIENDS.length) { friendFace(outN, 'happy', 1800); $('a' + outN).classList.add('out'); say('A friend came to play!'); outN++; streak = 0; setMood('happy', 2600);
+  if (streak >= every && outN < FRIENDS.length) { friendFace(ORDER[outN], 'happy', 1800); $('a' + ORDER[outN]).classList.add('out'); say('A friend came to play!'); outN++; streak = 0; setMood('happy', 2600);
     if (outN === FRIENDS.length) setTimeout(() => { say('All your friends are here! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
   if (++beat % 10 === 0) report(false).then(r => { const p = r && r.live, el = $('ontask'); if (!el) return; el.classList.toggle('hidden', !p); if (p) { $('pct').textContent = p.pct + '%'; $('pctn').textContent = p.on + ' of ' + p.total + ' students'; } });
   show();
