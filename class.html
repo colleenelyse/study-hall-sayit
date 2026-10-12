@@ -135,9 +135,9 @@ const pipAnimations = {
   idle: { src: 'animations/pip_anim_idle.webp', cols: 8, rows: 4, frameCount: 32, loop: true, priority: 3, anchor: 'feet', tweenMs: 70,
     sequence: Array.from({ length: 32 }, (_, i) => [i, i === 5 ? 120 : i === 4 || i === 6 ? 240 : 380]) },
   /* priority 1: special moments. They pause the idle loop, play once, and the loop comes back. */
-  dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' },
+  dance: { label: 'Dance', src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' },
   /* a backflip: crouch, jump (lift: from step 2 to step 8, up to 12% of the box), flip, land, wave. inset: his arms touch the cell edges, so 8px are trimmed off each cell */
-  backflip: { src: 'animations/pip_anim_backflip.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, inset: 8, lift: [2, 8, .12],
+  backflip: { label: 'Flip', src: 'animations/pip_anim_backflip.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, inset: 8, lift: [2, 8, .12],
     sequence: [[0, 220], [1, 200], [2, 120], [3, 95], [4, 95], [5, 95], [6, 95], [7, 95], [8, 130], [9, 200], [10, 200], [11, 380]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
