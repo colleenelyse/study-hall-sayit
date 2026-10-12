@@ -34,6 +34,7 @@
   @keyframes pipbob { 0%, 100% { transform: translateY(0) rotate(0) scale(1, 1) } 25% { transform: translateY(-1.8%) rotate(-1.6deg) scale(.99, 1.01) } 50% { transform: translateY(0) rotate(0) scale(1.01, .99) } 75% { transform: translateY(-1.2%) rotate(1.6deg) scale(.99, 1.01) } }
   .pipwrap.looping { animation: none } .pipwrap.startle, .pipwrap.looping.startle, #ppip.startle { animation: pipstartle .55s ease 2 } @keyframes pipstartle { 15% { transform: translateY(-8%) scale(.95, 1.06) } 35% { transform: translateY(0) scale(1.06, .94) translateX(-3%) } 55% { transform: translateX(3%) } 75% { transform: translateX(-2%) } }
   @media (prefers-reduced-motion: reduce) { .pipwrap, .pipwrap.startle { animation: none } }
+  .finscore { font-size: 3.4rem; font-weight: 800; line-height: 1.1; color: #1B2238; margin: 6px 0 2px } .finsub { margin: 0 0 10px; color: #555 } .finok { background: #E4F5EA; color: #1E6B40; border-radius: 12px; padding: 10px 14px; margin: 10px 0 } .finwarn { background: #FFF3D6; color: #7A5300; border-radius: 12px; padding: 10px 14px; margin: 10px 0 } .finnext { margin: 12px 0 }
   #finbox { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(27, 34, 56, .35) } #finbox .card { background: #fff; border-radius: 22px; padding: 24px 28px; max-width: 460px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .25) } #finbox h2 { font: 700 1.6rem Fraunces, Georgia, serif; margin: 0 0 8px } #finbox p { margin: 0 0 16px; color: #4A5270 }
   .ring { width: 54px; height: 54px } .hidden { display: none !important }
   .bdsvg { overflow: visible } .bd-work { animation: bdsway 2.6s ease-in-out infinite; transform-origin: 60px 112px } @keyframes bdsway { 25% { transform: rotate(-3deg) } 75% { transform: rotate(3deg) } }
@@ -417,10 +418,22 @@ function finishAsk() {
 }
 $('end').onclick = () => finishAsk();
 const finishNow = async () => { running = false; setMood('happy'); show(); $('end').disabled = true; say('Sending ' + Math.floor(calm / 60) + ' calm minutes to Study Hall…', 60000);
-  const sc = score(), fin = sc.could ? 'Final score: ' + outN + ' of ' + sc.could + ' friends, ' + sc.pct + '% (' + sc.letter + '). ' : '';
-  const r = await report(true); $('end').disabled = false;
-  if (r) { say(fin + (r.msg || 'Done!'), 20000); $('end').textContent = 'Close'; $('end').onclick = () => window.close(); }
-  else say(HOME && window.opener ? 'Study Hall did not answer. Keep its tab open, or click End quiet time on the Study Sidekick page there.' : 'Open this page from Study Sidekick in Study Hall to give rewards. ' + fin + Math.floor(calm / 60) + ' calm minutes.', 20000); };
+  const r = await report(true); $('end').disabled = false; $('msg').classList.remove('in'); finishCard(r); };
+/* the end: a card with the score, whether the rewards went out, and what to do next (close this tab) */
+function finishCard(r) {
+  const sc = score(), m = Math.floor(calm / 60), mins = m + (m === 1 ? ' calm minute' : ' calm minutes'), linked = !!(HOME && window.opener), sent = !!r;
+  const big = sc.could ? `<div class="finscore">${sc.pct}% · ${sc.letter}</div><p class="finsub">${outN} of ${sc.could} ${sc.could === 1 ? 'friend' : 'friends'} came out · ${mins}</p>` : `<p class="finsub">${mins}</p>`;
+  const rew = sent ? `<p class="finok">✓ ${esc(String(r.msg || '').replace(/^\d+ calm minutes?\. /, '') || 'Rewards sent to Study Hall.')}</p>`
+    : linked ? `<p class="finwarn">Study Hall did not answer, so no rewards went out yet. Check that the Study Hall tab is still open, then click <b>Try again</b>.</p>`
+    : `<p class="finwarn">No rewards went out: this page was not opened from Study Hall. Next time, open it from <b>Study Sidekick</b> in Study Hall.</p>`;
+  const next = sent || !linked ? `<p class="finnext"><b>All done! You can close this tab now.</b><br><span class="small">Then go back to your Study Hall tab.</span></p><div class="row" style="justify-content:center"><button class="main" id="finclose">Close this tab</button></div>`
+    : `<div class="row" style="justify-content:center"><button class="main" id="finretry">Try again</button><button id="finclose">Close this tab</button></div>`;
+  const old = $('finbox'); if (old) old.remove(); const box = document.createElement('div'); box.id = 'finbox';
+  box.innerHTML = `<div class="card"><h2>Quiet time is over!</h2>${big}${rew}${next}<p class="small" id="finhint" style="margin:10px 0 0"></p></div>`; document.body.appendChild(box);
+  $('finclose').onclick = () => { window.close(); setTimeout(() => { $('finhint').textContent = 'Your browser kept this tab open. Close it with the × on the tab, or press Ctrl+W (Cmd+W on a Mac).'; }, 300); };
+  if ($('finretry')) $('finretry').onclick = () => { box.remove(); finishNow(); };
+  $('end').textContent = 'Close'; $('end').onclick = () => finishCard(r);
+}
 addEventListener('beforeunload', e => { if (running && calm > 30) { report(false); e.preventDefault(); e.returnValue = ''; } });
 $('thr').style.left = thr + '%'; paintScene(); pipStart(); friendArtLoad(); show();
 </script>
