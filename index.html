@@ -72,7 +72,7 @@ function start() {
   };
   const next = () => { i++; tries = 0; if (i < words.length) paint(); else done(); };
   /* Chrome stops a listener it thinks nobody is holding (error: aborted), so the page keeps it in window.REC, asks for the microphone once first, and retries once if it is cut off. */
-  async function micReady() { if (window.MIC_OK) return true; try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); window.MIC_OK = true; return true; } catch (e) { .textContent = 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.'; return false; } }
+  async function micReady() { if (window.MIC_OK) return true; try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); window.MIC_OK = true; return true; } catch (e) { $('hint').textContent = 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.'; return false; } }
   async function listen(w, retry) {
     if (!(await micReady())) return;
     try { if (window.REC) window.REC.abort(); } catch (e) {}
