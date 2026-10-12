@@ -284,14 +284,14 @@ const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1],
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 let run = 0, thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
 /* the order friends come out in: shuffled fresh each time the page opens */
-const ORDER = Array.from({ length: FRIENDS.length }, (_, i) => i); for (let i = ORDER.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ORDER[i], ORDER[j]] = [ORDER[j], ORDER[i]]; }
+let ORDER = Array.from({ length: FRIENDS.length }, (_, i) => i); for (let i = ORDER.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ORDER[i], ORDER[j]] = [ORDER[j], ORDER[i]]; }
 $('cls').textContent = D.cls && D.cls !== '*' ? D.cls : D.cls === '*' ? 'All classes' : 'Class sidekick'; $('thrin').value = thr; $('every').value = String(every);
 function bush(x, y, s) { return `<g transform="translate(${x} ${y}) scale(${s})"><ellipse cx="-70" cy="20" rx="70" ry="50" fill="#4F9D4A"/><ellipse cx="60" cy="18" rx="74" ry="52" fill="#58A852"/><ellipse cx="-5" cy="-10" rx="80" ry="62" fill="#63B65C"/><ellipse cx="20" cy="40" rx="120" ry="38" fill="#4F9D4A"/><circle cx="-30" cy="-30" r="8" fill="#F7A8C8"/><circle cx="40" cy="-14" r="7" fill="#FFE07A"/></g>`; }
 function paintScene() {
   const sky = `<defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ED8F0"/><stop offset="1" stop-color="#DDF3FA"/></linearGradient></defs><rect width="1600" height="900" fill="url(#sk)"/><circle cx="1380" cy="130" r="70" fill="#FFE27A"/><g fill="#fff" opacity=".9"><ellipse cx="300" cy="140" rx="90" ry="30"/><ellipse cx="360" cy="120" rx="60" ry="32"/><ellipse cx="980" cy="90" rx="80" ry="26"/></g>
     <path d="M0 520Q300 400 620 480T1200 450T1600 500V900H0z" fill="#A9D98A"/><path d="M0 600Q400 520 800 580T1600 560V900H0z" fill="#8FCB70"/><ellipse cx="800" cy="800" rx="900" ry="140" fill="#7DBE5E"/>`;
   const friends = SPOTS.map((p, i) => [p, i]).sort((u, v) => u[0][1] - v[0][1]).map(([p, i]) => { const f = FRIENDS[i];      /* back to front: a friend lower on the hill stands in front of the bushes behind it */ return `<g transform="translate(${p[0] - 60 * p[2] * 1.4} ${p[1] - 188 * p[2]}) scale(${p[2] * 1.4})"><g class="ani" id="a${i}">${buddySvg(f[0], f[1], 'idle').replace('<svg ', '<svg width="120" height="132" ')}</g></g>${bush(p[0], p[1], p[2])}`; }).join('');
-  $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="575" y="300" width="450" height="400"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
+  $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="645" y="440" width="310" height="276"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + ORDER[i]).classList.add('out');
 }
 /* the friends: copies of the real 3D Pip, tinted (hue-rotate). Normal face: his resting picture; excited: the laughing, eyes-closed frame of
@@ -390,8 +390,15 @@ function step() {
 }
 /* calm seconds go back to Study Hall (the tab that opened this page), which gives the rewards when quiet time ends */
 let rid = 0, beat = 0; const waits = {};
+/* reopened from Study Hall after the tab was closed: the same quiet time, with its calm minutes, friends and their order */
+const RS = D.rs && typeof D.rs === 'object' ? D.rs : null;
+if (RS) { const st = RS.st || {}; calm = Math.max(0, Math.round(+RS.secs || 0)); run = Math.max(calm, Math.round(+st.run || 0)); streak = Math.max(0, Math.round(+st.streak || 0)) % Math.max(1, every);
+  if (Array.isArray(st.order) && st.order.length === FRIENDS.length && st.order.slice().sort((p, q) => p - q).every((v, i) => v === i)) ORDER = st.order.slice();
+  outN = Math.max(0, Math.min(FRIENDS.length, Math.round(+st.out || 0))); }
+const progress = () => ({ run, streak, out: outN, order: ORDER });
+if (RS) { const m = Math.floor(calm / 60), c = $('start').querySelector('.card'); c.querySelector('h1').textContent = 'Welcome back!'; c.querySelector('p').textContent = 'This quiet time is still going: ' + m + (m === 1 ? ' calm minute' : ' calm minutes') + ' and ' + outN + (outN === 1 ? ' friend' : ' friends') + ' so far. Pick up where you left off.'; $('go').textContent = 'Continue quiet time'; }
 function report(fin) { if (!HOME || !window.opener || !D.id) return Promise.resolve(null); const r = ++rid;
-  try { window.opener.postMessage({ type: 'class-quiet', id: D.id, secs: calm, fin: !!fin, rid: r }, HOME); } catch (e) { return Promise.resolve(null); }
+  try { window.opener.postMessage({ type: 'class-quiet', id: D.id, secs: calm, st: progress(), fin: !!fin, rid: r }, HOME); } catch (e) { return Promise.resolve(null); }
   return new Promise(ok => { waits[r] = ok; setTimeout(() => { if (waits[r]) { delete waits[r]; ok(null); } }, fin ? 45000 : 15000); }); }
 addEventListener('message', e => { if (e.origin !== HOME || !e.data || e.data.type !== 'class-quiet-ok') return; const w = waits[e.data.rid]; if (w) { delete waits[e.data.rid]; w(e.data); } });
 $('go').onclick = async () => { $('err').textContent = ''; try { await micOn(); } catch (e) { $('err').textContent = 'The microphone is blocked (' + e.name + '). Click the lock or microphone icon in the address bar, choose Allow, then reload.'; return; }
