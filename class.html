@@ -13,7 +13,7 @@
   :root { --ink: #1B2238; --card: rgba(255, 255, 255, .92); --accent: #4C6FE0; --good: #2E9D63; --bad: #D64545; --sun: #FFC53D }
   * { box-sizing: border-box } html, body { margin: 0; height: 100%; overflow: hidden; background: #BFE6F5; font: 700 1rem/1.3 Nunito, Arial, sans-serif; color: var(--ink) }
   #scene { position: fixed; inset: 0; width: 100%; height: 100% }
-  .ani { opacity: 0; transform: translateY(70px) scale(.5); transform-box: fill-box; transform-origin: 50% 100%; transition: transform .9s cubic-bezier(.2, 1.5, .4, 1), opacity .4s } .ani.out { opacity: 1; transform: none } .ani.hide { transition: transform .35s ease-in, opacity .35s .1s }
+  .ani { opacity: 0; transform: translateY(70px) scale(.5); transform-box: fill-box; transform-origin: 50% 100%; transition: transform .9s cubic-bezier(.2, 1.5, .4, 1), opacity .4s } .ani.out { opacity: 1; transform: none } .ani.hide { transition: transform .35s ease-in, opacity .35s .1s } .ani.scared { animation: scared .16s linear 4 } @keyframes scared { 25% { transform: translateX(-3px) } 75% { transform: translateX(3px) } }
   .bar { position: fixed; left: 16px; right: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; pointer-events: none } .bar > * { pointer-events: auto }
   .top { top: 14px } .bottom { bottom: 14px }
   .pill { background: var(--card); border-radius: 18px; padding: 10px 16px; box-shadow: 0 6px 18px rgba(0, 0, 0, .12) }
@@ -138,6 +138,11 @@ function paintScene() {
   $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
 }
+/* a friend's face: excited when they come out, scared just before they drop down, normal otherwise (drawn, no animation files) */
+const faceT = {};
+function friendFace(i, state, ms) { const g = $('a' + i), f = FRIENDS[i]; if (!g || !f) return; clearTimeout(faceT[i]);
+  g.innerHTML = buddySvg(f[0], f[1], state).replace('<svg ', '<svg width="120" height="132" ');
+  if (ms) faceT[i] = setTimeout(() => friendFace(i, 'idle'), ms); }
 function paintPip() { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60).replace('<svg ', '<svg width="120" height="132" ');
   if (MINI) { const p = MINI.document.getElementById('ppip'); if (p) p.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60); } }
 /* Pop out: a tiny window that stays on top of your other windows (Chrome's picture-in-picture for pages), with Pip, the calm minutes,
@@ -181,7 +186,8 @@ async function micOn() {
 }
 function meterPaint() { $('fill').style.width = lvl + '%'; $('mask').style.width = (100 - lvl) + '%'; if (MINI) { const f = MINI.document.getElementById('pfill'); if (f) { f.style.width = lvl + '%'; f.style.background = lvl > thr ? '#F07B7B' : lvl > thr * .8 ? '#FFD66B' : '#7ED69B'; } } }
 function tooLoud() { lastHide = Date.now(); streak = 0; $('meterbox').classList.remove('loud'); void $('meterbox').offsetWidth; $('meterbox').classList.add('loud'); setMood('drop', 2500);
-  if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! A friend got shy and hid.'); } else say('Too loud! Shh…'); show(); }
+  if (outN > 0) { outN--; const k = outN, a = $('a' + k); friendFace(k, 'drop'); a.classList.add('scared');      /* a scared face, a little shake, then down behind the bush */
+    setTimeout(() => { a.classList.remove('scared'); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => { a.classList.remove('hide'); friendFace(k, 'idle'); }, 450); }, 650); say('Too loud! A friend got scared and hid.'); } else say('Too loud! Shh…'); show(); }
 setInterval(() => { if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle'); }, 500);
 /* once a second of audio time (from the microphone callback, so it keeps counting in the background) */
 function step() {
@@ -189,7 +195,7 @@ function step() {
   if (!running) return;
   run++;      /* running seconds: how many friends could be out by now */
   if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
-  if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say('A friend came to play!'); outN++; streak = 0; setMood('happy', 2600);
+  if (streak >= every && outN < FRIENDS.length) { friendFace(outN, 'happy', 1800); $('a' + outN).classList.add('out'); say('A friend came to play!'); outN++; streak = 0; setMood('happy', 2600);
     if (outN === FRIENDS.length) setTimeout(() => { say('All your friends are here! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
   if (++beat % 10 === 0) report(false).then(r => { const p = r && r.live, el = $('ontask'); if (!el) return; el.classList.toggle('hidden', !p); if (p) { $('pct').textContent = p.pct + '%'; $('pctn').textContent = p.on + ' of ' + p.total + ' students'; } });
   show();
