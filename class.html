@@ -143,10 +143,10 @@ const pipAnimations = {
      stand on different ground lines, so every frame stands on one line (anchor feet) and rise lifts the three frames in the air (sheet pixels) */
   squish_jump: { label: 'Jump', src: 'animations/pip_anim_squish_jump.webp', cols: 5, rows: 2, frameCount: 10, loop: false, priority: 1, anchor: 'feet', tweenMs: 50, rise: [0, 0, 0, 31, 66, 37, 0, 0, 0, 0],
     sequence: [[0, 100], [1, 150], [2, 220], [3, 120], [4, 180], [5, 150], [6, 130], [7, 220], [8, 180], [9, 350]] },
-  /* pancake: he squishes flatter and flatter into a pancake, holds it (a little surprised), then puffs back up and waves. Colleen's sheet was not an
-     even grid, so its 8 figures were cut out and repacked into 4 x 2 cells of 380 px, feet on one line */
-  pancake: { label: 'Pancake', test: true, src: 'animations/pip_anim_pancake.webp', cols: 4, rows: 2, frameCount: 8, loop: false, priority: 1, anchor: 'feet', tweenMs: 60,
-    sequence: [[0, 150], [1, 150], [2, 160], [3, 450], [4, 500], [5, 200], [6, 200], [7, 400]] }
+  /* rubber band: he leans back and stretches taller and taller like a rubber band, holds it, snaps back with a wobble and a squish, bounces and waves.
+     Colleen's sheet had figures over the cell lines, so its 12 figures were cut out and repacked into 6 x 2 cells of 380 px, feet on one line */
+  rubber_band: { label: 'Rubber band', test: true, src: 'animations/pip_anim_rubber_band.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55,
+    sequence: [[0, 120], [1, 120], [2, 130], [3, 140], [4, 160], [5, 240], [6, 90], [7, 160], [8, 120], [9, 130], [10, 150], [11, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
      between two poses, so long ones show a double face: real smoothness needs more frames.
