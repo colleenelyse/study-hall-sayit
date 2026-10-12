@@ -141,7 +141,7 @@ const pipAnimations = {
     sequence: [[0, 220], [1, 200], [2, 120], [3, 95], [4, 95], [5, 95], [6, 95], [7, 95], [8, 130], [9, 200], [10, 200], [11, 380]] },
   /* squish and jump: crouch, squish, spring up, the top of the jump, down, land, squish, recover. The art draws the jump itself, but its two rows
      stand on different ground lines, so every frame stands on one line (anchor feet) and rise lifts the three frames in the air (sheet pixels) */
-  squish_jump: { label: 'Jump', src: 'animations/pip_anim_squish_jump.webp', cols: 5, rows: 2, frameCount: 10, loop: false, priority: 1, anchor: 'feet', tweenMs: 50, rise: [0, 0, 0, 31, 66, 37, 0, 0, 0, 0],
+  squish_jump: { label: 'Jump', test: true, src: 'animations/pip_anim_squish_jump.webp', cols: 5, rows: 2, frameCount: 10, loop: false, priority: 1, anchor: 'feet', tweenMs: 50, rise: [0, 0, 0, 31, 66, 37, 0, 0, 0, 0],
     sequence: [[0, 100], [1, 150], [2, 220], [3, 120], [4, 180], [5, 150], [6, 130], [7, 220], [8, 180], [9, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
