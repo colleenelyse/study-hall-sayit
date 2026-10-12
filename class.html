@@ -40,7 +40,7 @@
 <body>
 <svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
 <div class="bar top"><div class="pill"><div class="small" id="cls">Class sidekick</div><div class="big"><span id="mins">0</span> calm min</div></div>
-  <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 8 out</b></div></div>
+  <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 8 friends here</b></div></div>
   <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
 <div id="msg" role="status"></div>
 <div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><span class="small grow" id="mic"></span><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
@@ -161,7 +161,7 @@ async function popOut() {
 function setMood(m, ms) { mood = m; moodT = ms ? Date.now() + ms : 0; paintPip(); }
 let msgT = 0; function say(t, ms) { const m = $('msg'); m.textContent = t; m.classList.add('in'); clearTimeout(msgT); msgT = setTimeout(() => m.classList.remove('in'), ms || 3500); }
 function show() { if (MINI) { const d = MINI.document, m = d.getElementById('pmins'); if (m) { m.textContent = Math.floor(calm / 60); d.getElementById('pdots').innerHTML = FRIENDS.map((f, i) => `<i class="${i < outN ? 'on' : ''}" style="--c:${(PIP_COLORS[f[0].split(':')[1]] || PIP_COLORS.blue)[1]}"></i>`).join(''); d.getElementById('pthr').style.left = thr + '%'; d.getElementById('ppause').textContent = running ? 'Pause' : 'Resume'; } }
-  $('mins').textContent = Math.floor(calm / 60); $('out').textContent = outN + ' of ' + FRIENDS.length + ' out'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
+  $('mins').textContent = Math.floor(calm / 60); $('out').textContent = outN + ' of ' + FRIENDS.length + ' friends here'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
 /* the room's volume, 0 to 100, from the microphone (no recording: only the loudness of each moment is measured) */
 async function micOn() {
   stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -180,15 +180,15 @@ async function micOn() {
 }
 function meterPaint() { $('fill').style.width = lvl + '%'; $('mask').style.width = (100 - lvl) + '%'; if (MINI) { const f = MINI.document.getElementById('pfill'); if (f) { f.style.width = lvl + '%'; f.style.background = lvl > thr ? '#F07B7B' : lvl > thr * .8 ? '#FFD66B' : '#7ED69B'; } } }
 function tooLoud() { lastHide = Date.now(); streak = 0; $('meterbox').classList.remove('loud'); void $('meterbox').offsetWidth; $('meterbox').classList.add('loud'); setMood('drop', 2500);
-  if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! A friend hid.'); } else say('Too loud! Shh…'); show(); }
+  if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! A friend got shy and hid.'); } else say('Too loud! Shh…'); show(); }
 setInterval(() => { if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle'); }, 500);
 /* once a second of audio time (from the microphone callback, so it keeps counting in the background) */
 function step() {
   if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle');
   if (!running) return;
   if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
-  if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say('A friend came out to say hi!'); outN++; streak = 0; setMood('happy', 2600);
-    if (outN === FRIENDS.length) setTimeout(() => { say('Everyone came out! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
+  if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say('A friend came to play!'); outN++; streak = 0; setMood('happy', 2600);
+    if (outN === FRIENDS.length) setTimeout(() => { say('All your friends are here! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
   if (++beat % 10 === 0) report(false).then(r => { const p = r && r.live, el = $('ontask'); if (!el) return; el.classList.toggle('hidden', !p); if (p) { $('pct').textContent = p.pct + '%'; $('pctn').textContent = p.on + ' of ' + p.total + ' students'; } });
   show();
 }
