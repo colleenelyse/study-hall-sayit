@@ -280,7 +280,7 @@ const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
 const HOME = /^https:\/\/[a-z0-9-]+\.script\.googleusercontent\.com$/.test(String(D.o || '')) ? D.o : '';
 const KIND = D.kind && (BD_LOOK[D.kind] || /^Pip/.test(D.kind)) ? D.kind : 'Pip';
-const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }], ['Pip:sun', { neck: 'scarf' }], ['Pip:lilac', { face: 'glasses' }], ['Pip:peach', { head: 'flowers' }], ['Pip:teal', { head: 'cap' }], ['Pip:red', { neck: 'bowtie' }], ['Pip:lime', { head: 'crown' }], ['Pip:magenta', { head: 'beanie' }], ['Pip:cocoa', { head: 'headphones' }]];      /* 10 friends, so the score is easy: 8 of 10 = 80% */
+const FRIENDS = [['Pip:pink', {}], ['Pip:lilac', {}], ['Pip:peach', {}], ['Pip:mint', {}], ['Pip:blue', {}], ['Pip:sun', {}], ['Pip:magenta', {}], ['Pip:red', {}], ['Pip:teal', {}], ['Pip:lime', {}]];      /* the colours of the friends on friends.webp, in order (for the pop-out dots and the drawn stand-ins) */      /* 10 friends, so the score is easy: 8 of 10 = 80% */
 const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5], [70, 470, .55], [1540, 470, .55]];
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 let run = 0, thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
@@ -295,32 +295,23 @@ function paintScene() {
   $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="645" y="440" width="310" height="276"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + ORDER[i]).classList.add('out');
 }
-/* the friends: copies of the real 3D Pip, tinted (hue-rotate). Normal face: his resting picture; excited: the laughing, eyes-closed frame of
-   his dance (frame 4). There is no scared face in his art yet, so a scared friend shakes and drops. Until the art loads (or if it cannot),
-   the drawn friends stand in. */
-const FRIEND_TINT = { pink: [95, 1.1, 1.05], mint: [-95, 1, 1.08], sun: [175, 1.25, 1.18], lilac: [35, 1, 1.03], peach: [150, 1.1, 1.12], teal: [-68, 1.25, 1.02], red: [125, 1.35, 1], lime: [-125, 1.15, 1.15], magenta: [65, 1.25, 1], cocoa: [160, .55, .85], blue: [0, 1, 1] };
-/* each friend's own build, so they do not all look like Pip: [width, height] compared with him (wide and round, tall and thin, little...) */
-const FRIEND_SHAPE = [[1.3, .9], [.78, 1.08], [1.12, .74], [.9, 1], [1.4, .8], [.72, 1], [1.05, .66], [1.22, 1.04], [.84, .82], [1.18, .92]];
+/* the friends: their own artwork (pip/friends/friends.webp, an even 6 x 5 grid of 240 px cells, feet on one line). Each row holds two
+   friends, three faces each: normal, excited, scared. Friend k: row k / 2, columns (k % 2) * 3 to + 2. Until the art loads (or if it
+   cannot), the drawn friends stand in. */
+const FRIEND_ART = { src: 'friends/friends.webp', cols: 6, rows: 5 };
 let FART = null; const faceT = {};
-function friendArtCut(e, i, tint, shape) {
-  const [sx, sy, cw, ch] = e.cells[i], b = (e.boxes && e.boxes[i]) || { l: 0, t: 0, r: cw, b: ch }, w = b.r - b.l, hh = b.b - b.t, H = 300, W = Math.round(H * w / hh * (shape ? shape[0] / shape[1] : 1)), c = document.createElement('canvas');
-  c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(e.img, sx + b.l, sy + b.t, w, hh, 0, 0, W, H);
-  /* tint only his blue body: the mouth, eyes and cheeks keep their own colours (a tinted red mouth would turn green) */
-  const t = document.createElement('canvas'); t.width = W; t.height = H; const y = t.getContext('2d', { willReadFrequently: true });
-  y.filter = 'hue-rotate(' + tint[0] + 'deg) saturate(' + tint[1] + ') brightness(' + tint[2] + ')'; y.drawImage(c, 0, 0);
-  const A = x.getImageData(0, 0, W, H), B = y.getImageData(0, 0, W, H).data, d = A.data;
-  for (let p = 0; p < d.length; p += 4) { const r = d[p], g = d[p + 1], bl = d[p + 2], mx = Math.max(r, g, bl), mn = Math.min(r, g, bl);
-    if (mx - mn > 25 && bl === mx && bl - r > 20) { d[p] = B[p]; d[p + 1] = B[p + 1]; d[p + 2] = B[p + 2]; } }      /* bluish = body */
-  x.putImageData(A, 0, 0);
-  return { url: c.toDataURL('image/png'), ar: W / H };
+function friendArtCut(e, i) {
+  const [sx, sy, cw, ch] = e.cells[i], b = (e.boxes && e.boxes[i]) || { l: 0, t: 0, r: cw, b: ch }, w = b.r - b.l, hh = b.b - b.t, c = document.createElement('canvas');
+  c.width = Math.round(w); c.height = Math.round(hh); c.getContext('2d').drawImage(e.img, sx + b.l, sy + b.t, w, hh, 0, 0, c.width, c.height);
+  return { url: c.toDataURL('image/png'), ar: w / hh, h: hh };
 }
 async function friendArtLoad() {
-  try { const still = await pipLoad('pip/' + PIP_IDLE, null), d = pipAnimations.dance, dance = await pipLoad('pip/' + d.src, d); if (!still.ok || !dance.ok) return;
-    const out = FRIENDS.map((f, i) => { const tint = FRIEND_TINT[f[0].split(':')[1]] || FRIEND_TINT.blue, sh = FRIEND_SHAPE[i] || [1, 1]; return { idle: friendArtCut(still, 0, tint, sh), happy: friendArtCut(dance, 4, tint, sh), h: sh[1] }; });
-    FART = out; FRIENDS.forEach((f, i) => friendFace(i, 'idle')); } catch (e) { FART = null; }
+  try { const e = await pipLoad('pip/' + FRIEND_ART.src, FRIEND_ART); if (!e.ok) return;
+    FART = FRIENDS.map((f, k) => { const c0 = Math.floor(k / 2) * 6 + (k % 2) * 3; return { idle: friendArtCut(e, c0), happy: friendArtCut(e, c0 + 1), drop: friendArtCut(e, c0 + 2) }; });
+    FRIENDS.forEach((f, i) => friendFace(i, 'idle')); } catch (e) { FART = null; }
 }
 function friendFace(i, state, ms) { const g = $('a' + i), f = FRIENDS[i]; if (!g || !f) return; clearTimeout(faceT[i]);
-  if (FART) { const a = FART[i], pic = state === 'happy' ? a.happy : a.idle, hh = 132 * a.h, w = hh * pic.ar;
+  if (FART && FART[i]) { const pic = FART[i][state] || FART[i].idle, hh = 132 * Math.min(1.1, pic.h / 200), w = hh * pic.ar;      /* their own sizes: about 180 to 207 px tall on the sheet */
     g.innerHTML = `<image href="${pic.url}" x="${(120 - w) / 2}" y="${132 - hh}" width="${w}" height="${hh}" preserveAspectRatio="xMidYMax meet"/>`; }
   else g.innerHTML = buddySvg(f[0], f[1], state).replace('<svg ', '<svg width="120" height="132" ');
   if (ms) faceT[i] = setTimeout(() => friendFace(i, 'idle'), ms); }
