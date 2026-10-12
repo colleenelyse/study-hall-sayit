@@ -41,7 +41,7 @@
 <svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
 <div class="bar top"><div class="pill"><div class="small" id="cls">Class sidekick</div><div class="big"><span id="mins">0</span> calm min</div></div>
   <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 8 out</b></div></div>
-  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><span class="grow"></span><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
+  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
 <div id="msg" role="status"></div>
 <div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><span class="small grow" id="mic"></span><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
   <div class="track"><div class="fill" id="fill"></div><div class="mask" id="mask"></div><div class="thr" id="thr"></div></div><input type="range" id="thrin" min="10" max="95" value="60" aria-label="Too loud line"></div></div>
@@ -140,27 +140,50 @@ function paintScene() {
   $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
 }
-function paintPip() { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60).replace('<svg ', '<svg width="120" height="132" '); }
+function paintPip() { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60).replace('<svg ', '<svg width="120" height="132" ');
+  if (MINI) { const p = MINI.document.getElementById('ppip'); if (p) p.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60); } }
+/* Pop out: a tiny window that stays on top of your other windows (Chrome's picture-in-picture for pages), with Pip, the calm minutes,
+   the friends that are out, the volume bar and Pause. Elsewhere, a small ordinary window. */
+let MINI = null;
+async function popOut() {
+  if (MINI) { try { MINI.close(); } catch (e) {} MINI = null; return; }
+  let w = null;
+  try { if (window.documentPictureInPicture) w = await documentPictureInPicture.requestWindow({ width: 300, height: 300 }); } catch (e) { w = null; }
+  if (!w) { w = window.open('', 'classsidekick', 'popup=yes,width=300,height=320'); if (!w) { say('Your browser blocked the small window.'); return; } say('This browser cannot keep the window on top: use Chrome for that.', 5000); }
+  MINI = w; const d = w.document;
+  d.head.innerHTML = '<meta charset="utf-8"><title>Class Sidekick</title>' + [...document.querySelectorAll('style, link[rel=stylesheet]')].map(x => x.outerHTML).join('') + '<style>body{background:#DDF3FA;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;height:100vh;box-sizing:border-box;overflow:hidden}#ppip{width:46vmin;height:50vmin}#ppip svg{width:100%;height:100%}.pm{font:700 clamp(1.1rem,9vw,2rem) Fraunces,Georgia,serif}.pdots{display:flex;gap:5px}.pdots i{width:12px;height:12px;border-radius:50%;background:#C9D3DD}.pdots i.on{background:var(--c)}.ptrack{width:90%;height:14px;border-radius:99px;background:#fff;overflow:hidden;position:relative;box-shadow:inset 0 0 0 2px #e4e7ee}#pfill{height:100%;width:0;border-radius:99px}#pthr{position:absolute;top:0;bottom:0;width:3px;background:#1B2238}.prow{display:flex;gap:8px;align-items:center}.prow button{padding:6px 12px;font-size:.85rem}</style>';
+  d.body.innerHTML = '<div id="ppip"></div><div class="pm"><span id="pmins">0</span> calm min</div><div class="pdots" id="pdots"></div><div class="ptrack"><div id="pfill"></div><div id="pthr"></div></div><div class="prow"><button id="ppause">Pause</button><button id="pback">Back to big</button></div>';
+  d.getElementById('ppause').onclick = () => $('pause').click();
+  d.getElementById('pback').onclick = () => { try { w.close(); } catch (e) {} };
+  w.addEventListener('pagehide', () => { MINI = null; $('pop').textContent = 'Pop out'; });
+  $('pop').textContent = 'Close pop-out'; paintPip(); show();
+}
 function setMood(m, ms) { mood = m; moodT = ms ? Date.now() + ms : 0; paintPip(); }
 let msgT = 0; function say(t, ms) { const m = $('msg'); m.textContent = t; m.classList.add('in'); clearTimeout(msgT); msgT = setTimeout(() => m.classList.remove('in'), ms || 3500); }
-function show() { $('mins').textContent = Math.floor(calm / 60); $('out').textContent = outN + ' of ' + FRIENDS.length + ' out'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
+function show() { if (MINI) { const d = MINI.document, m = d.getElementById('pmins'); if (m) { m.textContent = Math.floor(calm / 60); d.getElementById('pdots').innerHTML = FRIENDS.map((f, i) => `<i class="${i < outN ? 'on' : ''}" style="--c:${(PIP_COLORS[f[0].split(':')[1]] || PIP_COLORS.blue)[1]}"></i>`).join(''); d.getElementById('pthr').style.left = thr + '%'; d.getElementById('ppause').textContent = running ? 'Pause' : 'Resume'; } }
+  $('mins').textContent = Math.floor(calm / 60); $('out').textContent = outN + ' of ' + FRIENDS.length + ' out'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
 /* the room's volume, 0 to 100, from the microphone (no recording: only the loudness of each moment is measured) */
 async function micOn() {
   stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
   const ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(), buf = new Float32Array(1024); an.fftSize = 1024;
   ctx.createMediaStreamSource(stream).connect(an); $('mic').textContent = (stream.getAudioTracks()[0] || {}).label || '';
-  let last = performance.now();
-  const tick = now => { an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
-    const db = 20 * Math.log10(Math.sqrt(s / buf.length) + 1e-9), raw = Math.max(0, Math.min(100, (db + 62) / 52 * 100)), dt = (now - last) / 1000; last = now;
-    lvl += (raw - lvl) * (raw > lvl ? .25 : .06);
-    $('fill').style.width = lvl + '%'; $('mask').style.width = (100 - lvl) + '%';
+  /* measured in the audio callback, not on screen refreshes: Chrome keeps this running when the tab is in the background (the pop-out window) */
+  const sp = ctx.createScriptProcessor(2048, 1, 1), mute = ctx.createGain(); mute.gain.value = 0;
+  ctx.createMediaStreamSource(stream).connect(sp); sp.connect(mute); mute.connect(ctx.destination); window.KEEP = [ctx, sp, mute];
+  let acc = 0;
+  sp.onaudioprocess = ev => { const d = ev.inputBuffer.getChannelData(0), dt = d.length / ev.inputBuffer.sampleRate; let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
+    const db = 20 * Math.log10(Math.sqrt(s / d.length) + 1e-9), raw = Math.max(0, Math.min(100, (db + 62) / 52 * 100));
+    lvl += (raw - lvl) * (raw > lvl ? .45 : .12);
     if (running && lvl > thr) { loudFor += dt; if (loudFor > 1 && Date.now() - lastHide > 4000) tooLoud(); } else loudFor = Math.max(0, loudFor - dt * 2);
-    requestAnimationFrame(tick); };
-  requestAnimationFrame(tick);
+    acc += dt; if (acc >= 1) { acc -= 1; step(); }
+    meterPaint(); };
 }
+function meterPaint() { $('fill').style.width = lvl + '%'; $('mask').style.width = (100 - lvl) + '%'; if (MINI) { const f = MINI.document.getElementById('pfill'); if (f) { f.style.width = lvl + '%'; f.style.background = lvl > thr ? '#F07B7B' : lvl > thr * .8 ? '#FFD66B' : '#7ED69B'; } } }
 function tooLoud() { lastHide = Date.now(); streak = 0; $('meterbox').classList.remove('loud'); void $('meterbox').offsetWidth; $('meterbox').classList.add('loud'); setMood('drop', 2500);
   if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! A friend hid.'); } else say('Too loud! Shh…'); show(); }
-setInterval(() => {
+setInterval(() => { if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle'); }, 500);
+/* once a second of audio time (from the microphone callback, so it keeps counting in the background) */
+function step() {
   if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle');
   if (!running) return;
   if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
@@ -168,7 +191,7 @@ setInterval(() => {
     if (outN === FRIENDS.length) setTimeout(() => { say('Everyone came out! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
   if (++beat % 10 === 0) report(false).then(r => { const p = r && r.live, el = $('ontask'); if (!el) return; el.classList.toggle('hidden', !p); if (p) { $('pct').textContent = p.pct + '%'; $('pctn').textContent = p.on + ' of ' + p.total + ' students'; } });
   show();
-}, 1000);
+}
 /* calm seconds go back to Study Hall (the tab that opened this page), which gives the rewards when quiet time ends */
 let rid = 0, beat = 0; const waits = {};
 function report(fin) { if (!HOME || !window.opener || !D.id) return Promise.resolve(null); const r = ++rid;
@@ -178,6 +201,7 @@ addEventListener('message', e => { if (e.origin !== HOME || !e.data || e.data.ty
 $('go').onclick = async () => { $('err').textContent = ''; try { await micOn(); } catch (e) { $('err').textContent = 'The microphone is blocked (' + e.name + '). Click the lock or microphone icon in the address bar, choose Allow, then reload.'; return; }
   $('start').classList.add('hidden'); running = true; setMood('work'); say('Shh… let’s see who comes out!'); show(); };
 $('pause').onclick = () => { running = !running; setMood(running ? 'work' : 'idle'); show(); };
+$('pop').onclick = () => popOut();
 $('full').onclick = () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) {} };
 $('thrin').oninput = e => { thr = +e.target.value; store('cs-thr', thr); $('thr').style.left = thr + '%'; };
 $('every').onchange = e => { every = +e.target.value; store('cs-every', every); show(); };
