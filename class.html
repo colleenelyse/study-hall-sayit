@@ -149,7 +149,7 @@ const pipAnimations = {
     sequence: [[0, 120], [1, 120], [2, 130], [3, 140], [4, 160], [5, 240], [6, 90], [7, 160], [8, 120], [9, 130], [10, 150], [11, 350]] },
   /* pancake (Colleen's second version): squish flat as a pancake, spring up high, land, flatten again, pop back up. Her sheet was not an even grid, so
      its 12 figures were repacked into 6 x 2 cells of 300 px, feet on one line; rise puts back the four frames in the air (their height on her sheet) */
-  pancake: { label: 'Pancake', test: true, src: 'animations/pip_anim_pancake.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55, rise: [0, 0, 0, 0, 12, 83, 101, 52, 0, 0, 0, 0],
+  pancake: { label: 'Pancake', test: true, src: 'animations/pip_anim_pancake_v2.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55, rise: [0, 0, 0, 0, 12, 83, 101, 52, 0, 0, 0, 0],
     sequence: [[0, 120], [1, 120], [2, 140], [3, 350], [4, 110], [5, 130], [6, 180], [7, 120], [8, 140], [9, 300], [10, 150], [11, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
