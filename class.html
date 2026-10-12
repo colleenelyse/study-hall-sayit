@@ -169,8 +169,9 @@ const pipAnimations = {
   ily: { label: 'ILY', src: 'animations/pip_anim_ily.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'ground', tweenMs: 60,
     sequence: [[0, 200], [1, 150], [2, 150], [3, 200], [4, 200], [5, 200], [6, 320], [7, 200], [8, 200], [9, 200], [10, 150], [11, 300]] },
   /* confetti: he claps, throws his arms up and confetti bursts out, it falls around him and settles on the ground while he laughs, then he stands
-     happy. An even 4 x 3 grid as drawn. body: measure only Pip (his biggest shape), so confetti lying on the ground is not taken for his feet */
-  confetti: { label: 'Confetti', test: true, src: 'animations/pip_anim_confetti.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', body: true, tweenMs: 70,
+     happy. An even 4 x 3 grid as drawn. body: measure only Pip (his biggest shape), so confetti lying on the ground is not taken for his feet; anchor 'ground' keeps
+     each frame's place across (the bursts from his hands would shift him); in frame 8 a piece touches his foot, so rise -11 sets him back down */
+  confetti: { label: 'Confetti', test: true, src: 'animations/pip_anim_confetti.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'ground', body: true, tweenMs: 70, rise: [0, 0, 0, 0, 0, 0, 0, 0, -11, 0, 0, 0],
     sequence: [[0, 150], [1, 180], [2, 150], [3, 160], [4, 220], [5, 220], [6, 220], [7, 220], [8, 230], [9, 230], [10, 260], [11, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'ground': feet on one line, each frame keeps its place across; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
