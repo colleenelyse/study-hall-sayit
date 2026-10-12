@@ -71,17 +71,32 @@ function start() {
     $('mic').onclick = () => listen(w); $('skip').onclick = () => { res.push([w, 0, '']); next(); };
   };
   const next = () => { i++; tries = 0; if (i < words.length) paint(); else done(); };
-  /* Chrome stops a listener it thinks nobody is holding (error: aborted), so the page keeps it in window.REC, asks for the microphone once first, and retries once if it is cut off. */
-  async function micReady() { if (window.MIC_OK) return true; try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); window.MIC_OK = true; return true; } catch (e) { $('hint').textContent = 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.'; return false; } }
-  async function listen(w, retry) {
+  /* One listener for the whole page, kept in window.REC (Chrome may stop one it thinks nobody holds). The microphone is only asked for separately when the
+     browser has not said yes yet, and then the page waits a moment, because switching the microphone on and straight off again can make Chrome stop at once.
+     Each try keeps a short trail of what happened (start, audio, speech, result, error, end), shown when it does not work, to find the cause. */
+  let running = false;
+  async function micReady() {
+    try { const p = navigator.permissions && await navigator.permissions.query({ name: 'microphone' }); if (p && p.state === 'granted') return true; } catch (e) {}
+    try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }); st.getTracks().forEach(t => t.stop()); await new Promise(ok => setTimeout(ok, 600)); return true; }
+    catch (e) { $('hint').textContent = 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.'; return false; }
+  }
+  const WHY = { 'no-speech': 'I did not hear anything. Tap and try again, a little louder.', aborted: 'Listening stopped right away. Tap the microphone and try again.', network: 'Say It needs the internet to listen. Check the connection and try again.',
+    'audio-capture': 'No microphone was found. Check that one is connected and turned on.', 'not-allowed': 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.',
+    'service-not-allowed': 'This browser is not allowed to listen. Use Chrome, or check the microphone settings.', 'language-not-supported': 'This browser cannot listen in this language.' };
+  async function listen(w) {
+    const mic = $('mic'), hint = $('hint');
+    if (running) { try { window.REC.abort(); } catch (e) {} return; }      /* a second tap while listening stops it */
     if (!(await micReady())) return;
-    try { if (window.REC) window.REC.abort(); } catch (e) {}
-    const r = new SR(); window.REC = r; r.lang = LOCALE[w[2]] || w[2] || 'en-US'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
-    const mic = $('mic'), hint = $('hint'); mic.classList.add('on'); hint.textContent = 'Listening… say it now.'; let got = false;
-    r.onresult = e => { got = true; const alts = [...e.results[0]].map(a => a.transcript); show(w, alts); };
-    r.onerror = e => { mic.classList.remove('on'); if (e.error === 'aborted' && !retry && !got) { setTimeout(() => listen(w, true), 250); return; } hint.textContent = e.error === 'aborted' ? 'Listening stopped. Tap the microphone and try again.' : e.error === 'network' ? 'Say It needs the internet to listen. Check the connection and try again.' : e.error === 'audio-capture' ? 'No microphone was found. Check that one is connected and turned on.' : e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.' : e.error === 'no-speech' ? 'I did not hear anything. Tap and try again, a little louder.' : 'Something went wrong (' + e.error + '). Tap and try again.'; };
-    r.onend = () => { if (window.REC === r) window.REC = null; mic.classList.remove('on'); if (!got && hint.textContent.indexOf('Listening') === 0) hint.textContent = 'I did not hear anything. Tap and try again.'; };
-    try { r.start(); } catch (e) { mic.classList.remove('on'); }
+    const r = window.REC || (window.REC = new SR()), trail = []; let got = false, err = '';
+    r.lang = LOCALE[w[2]] || w[2] || 'en-US'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
+    r.onstart = () => { running = true; trail.push('start'); mic.classList.add('on'); hint.textContent = 'Listening… say it now.'; };
+    r.onaudiostart = () => trail.push('audio'); r.onspeechstart = () => trail.push('speech');
+    r.onresult = e => { got = true; trail.push('result'); show(w, [...e.results[0]].map(a => a.transcript)); };
+    r.onerror = e => { err = e.error; trail.push('error ' + e.error); };
+    r.onend = () => { running = false; trail.push('end'); mic.classList.remove('on'); if (got) return;
+      hint.innerHTML = esc(WHY[err] || (err ? 'Something went wrong (' + err + '). Tap and try again.' : trail.indexOf('audio') < 0 ? 'The microphone did not start. Check your computer’s sound input (on a Mac: System Settings > Sound > Input), then tap and try again.' : 'I did not hear anything. Tap and try again.'))
+        + '<br><small style="opacity:.7">Details: ' + esc(trail.join(', ')) + ' · ' + esc(r.lang) + ' · ' + esc(/Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Safari\//.test(navigator.userAgent) ? 'Safari' : 'other browser') + '</small>'; };
+    try { r.start(); } catch (e) { running = false; hint.textContent = 'Could not start listening (' + e.name + '). Reload the page and try again.'; }
   }
   function show(w, alts) {
     tries++; const s = score(alts, w[0]), kind = s >= .85 ? 'good' : s >= .6 ? 'close' : 'bad', box = $('res');
