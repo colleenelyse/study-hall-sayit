@@ -138,7 +138,11 @@ const pipAnimations = {
   dance: { label: 'Dance', src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' },
   /* a backflip: crouch, jump (lift: from step 2 to step 8, up to 12% of the box), flip, land, wave. inset: his arms touch the cell edges, so 8px are trimmed off each cell */
   backflip: { label: 'Flip', src: 'animations/pip_anim_backflip.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, inset: 8, lift: [2, 8, .12],
-    sequence: [[0, 220], [1, 200], [2, 120], [3, 95], [4, 95], [5, 95], [6, 95], [7, 95], [8, 130], [9, 200], [10, 200], [11, 380]] }
+    sequence: [[0, 220], [1, 200], [2, 120], [3, 95], [4, 95], [5, 95], [6, 95], [7, 95], [8, 130], [9, 200], [10, 200], [11, 380]] },
+  /* squish and jump: crouch, squish, spring up, the top of the jump, down, land, squish, recover. The art draws the jump itself, but its two rows
+     stand on different ground lines, so every frame stands on one line (anchor feet) and rise lifts the three frames in the air (sheet pixels) */
+  squish_jump: { label: 'Jump', src: 'animations/pip_anim_squish_jump.webp', cols: 5, rows: 2, frameCount: 10, loop: false, priority: 1, anchor: 'feet', tweenMs: 50, rise: [0, 0, 0, 31, 66, 37, 0, 0, 0, 0],
+    sequence: [[0, 100], [1, 150], [2, 220], [3, 120], [4, 180], [5, 150], [6, 130], [7, 220], [8, 180], [9, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
      between two poses, so long ones show a double face: real smoothness needs more frames.
@@ -151,7 +155,7 @@ const pipReducedMotion = () => { try { return matchMedia('(prefers-reduced-motio
 const PIP_IMG = {};
 function pipLoad(src, a) {
   const lay = a && a.layout === 'figures' ? 'figures' : (a ? a.cols + 'x' + a.rows : '1x1'), key = src + '|' + lay; if (PIP_IMG[key]) return PIP_IMG[key].p;
-  const e = PIP_IMG[key] = { ok: false, cells: null, boxes: null };
+  const e = PIP_IMG[key] = { ok: false, cells: null, boxes: null, rise: (a && a.rise) || null };
   e.p = new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async';
     im.onload = () => { e.img = im; e.ok = true;
       try { if (lay === 'figures') { e.cells = pipFigures(im); e.boxes = e.cells.map(c => ({ l: 0, t: 0, r: c[2], b: c[3] })); }
@@ -214,7 +218,7 @@ class PipAnimationPlayer {
     let k = Math.min(h * .82 / rH, w * .9 / rW);
     if (e !== R) { const eb = ok(e.boxes), eH = med(eb.map(b => b.b - b.t)), eW = eb.length ? Math.max(...eb.map(b => b.r - b.l)) : 0; if (eH) k = k * rH / eH; if (eW) k = Math.min(k, w * .9 / eW); }
     const bx = e.boxes && e.boxes[i];
-    const dx = bx && anchor !== 'none' ? w / 2 - ((bx.l + bx.r) / 2) * k : (w - cw * k) / 2, dy = bx && anchor !== 'none' ? h * .96 - bx.b * k : h * .96 - ch * k;
+    const dx = bx && anchor !== 'none' ? w / 2 - ((bx.l + bx.r) / 2) * k : (w - cw * k) / 2, dy = (bx && anchor !== 'none' ? h * .96 - bx.b * k : h * .96 - ch * k) - ((e.rise && e.rise[i]) || 0) * k;      /* rise: a frame in the air */
     return [e.img, sx, sy, cw, ch, dx, dy, cw * k, ch * k];
   }
   /* draw frame i of e; with B ({ e, i, anchor }) and f (0 to 1), dissolve into B: the first half fades B in over A, the second fades A out
