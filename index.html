@@ -83,9 +83,9 @@ function start() {
   const WHY = { 'no-speech': 'I did not hear anything. Tap and try again, a little louder.', aborted: 'Listening stopped right away. Tap the microphone and try again.', network: 'Say It needs the internet to listen. Check the connection and try again.',
     'audio-capture': 'No microphone was found. Check that one is connected and turned on.', 'not-allowed': 'The microphone is blocked. Click the lock or microphone icon in the address bar, choose Allow, then reload this page.',
     'service-not-allowed': 'This browser is not allowed to listen. Use Chrome, or check the microphone settings.', 'language-not-supported': 'This browser cannot listen in this language.' };
-  async function listen(w) {
-    const mic = $('mic'), hint = $('hint');
-    if (running) { try { window.REC.abort(); } catch (e) {} return; }      /* a second tap while listening stops it */
+  async function listen(w, attempt) {
+    const mic = $('mic'), hint = $('hint'); attempt = attempt || 0;
+    if (running) { if (attempt) return; try { window.REC.abort(); } catch (e) {} return; }      /* a second tap while listening stops it */
     if (!(await micReady())) return;
     const r = window.REC || (window.REC = new SR()), trail = []; let got = false, err = '';
     r.lang = LOCALE[w[2]] || w[2] || 'en-US'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
@@ -94,8 +94,10 @@ function start() {
     r.onresult = e => { got = true; trail.push('result'); show(w, [...e.results[0]].map(a => a.transcript)); };
     r.onerror = e => { err = e.error; trail.push('error ' + e.error); };
     r.onend = () => { running = false; trail.push('end'); mic.classList.remove('on'); if (got) return;
+      /* cut off before any speech (headphones switching to their microphone, or another tab listening): try again by itself, up to twice */
+      if (err === 'aborted' && attempt < 2 && trail.indexOf('speech') < 0) { hint.textContent = 'One moment… listening again.'; setTimeout(() => listen(w, attempt + 1), 500 + attempt * 400); return; }
       hint.innerHTML = esc(WHY[err] || (err ? 'Something went wrong (' + err + '). Tap and try again.' : trail.indexOf('audio') < 0 ? 'The microphone did not start. Check your computer’s sound input (on a Mac: System Settings > Sound > Input), then tap and try again.' : 'I did not hear anything. Tap and try again.'))
-        + '<br><small style="opacity:.7">Details: ' + esc(trail.join(', ')) + ' · ' + esc(r.lang) + ' · ' + esc(/Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Safari\//.test(navigator.userAgent) ? 'Safari' : 'other browser') + '</small>'; };
+        + '<br><small style="opacity:.7">Details: ' + esc(trail.join(', ')) + ' · try ' + (attempt + 1) + ' · ' + esc(r.lang) + ' · ' + esc(/Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Safari\//.test(navigator.userAgent) ? 'Safari' : 'other browser') + '</small>'; };
     try { r.start(); } catch (e) { running = false; hint.textContent = 'Could not start listening (' + e.name + '). Reload the page and try again.'; }
   }
   function show(w, alts) {
