@@ -31,7 +31,7 @@
   #start { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(191, 230, 245, .7) } #start .card { background: #fff; border-radius: 24px; padding: 28px; max-width: 520px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .18) }
   #start h1 { font: 700 2rem Fraunces, Georgia, serif; margin: 0 0 8px } #start p { margin: 0 0 16px; color: #4A5270 }
   .ring { width: 54px; height: 54px } .hidden { display: none !important }
-  .bdsvg { overflow: visible } .bd-work .bdneedles { animation: bdknit .5s ease-in-out infinite alternate; transform-origin: 60px 86px } @keyframes bdknit { to { transform: rotate(6deg) } }
+  .bdsvg { overflow: visible } .bd-work { animation: bdsway 2.6s ease-in-out infinite; transform-origin: 60px 112px } @keyframes bdsway { 25% { transform: rotate(-3deg) } 75% { transform: rotate(3deg) } }
   .bdeyes { animation: bdblink 4.5s infinite; transform-origin: 60px 52px } @keyframes bdblink { 0%, 95%, 100% { transform: scaleY(1) } 97% { transform: scaleY(.1) } }
   .bd-happy { animation: bdhop .65s ease-in-out infinite } @keyframes bdhop { 50% { transform: translateY(-6px) } } .pipwave { animation: pipwave 1.6s ease-in-out infinite; transform-origin: 98px 62px } @keyframes pipwave { 50% { transform: rotate(-16deg) } }
   .bd-drop { animation: bdshake .4s ease 2 } @keyframes bdshake { 25% { transform: translateX(-3px) } 75% { transform: translateX(3px) } }
@@ -40,8 +40,8 @@
 <body>
 <svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
 <div class="bar top"><div class="pill"><div class="small" id="cls">Class sidekick</div><div class="big"><span id="mins">0</span> calm min</div></div>
-  <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 8 friends here</b></div></div>
-  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
+  <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 10 friends here</b></div></div>
+  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><div class="pill"><div class="small">Score</div><div class="big" id="score">–</div><div class="small" id="scoren"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
 <div id="msg" role="status"></div>
 <div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><span class="small grow" id="mic"></span><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
   <div class="track"><div class="fill" id="fill"></div><div class="mask" id="mask"></div><div class="thr" id="thr"></div></div><input type="range" id="thrin" min="10" max="95" value="60" aria-label="Too loud line"></div></div>
@@ -84,10 +84,9 @@ const PIP_COLORS = { blue: ['#C8D0FB', '#93A2EE', '#6D7DDA'], pink: ['#FCD3E6', 
 function pipSvg(wear, state, prog, cls, put, color) {
   const pc = PIP_COLORS[color] || PIP_COLORS.blue, g = 'pipg' + (++BD_GID), happy = state === 'happy', drop = state === 'drop', work = state === 'work';
   const c = `url(#${g})`, arm = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="9" ry="15" fill="${c}" transform="rotate(${r} ${x} ${y})"/>`;
-  const p = Math.max(0, Math.min(1, prog || 0)), knit = `<rect x="51" y="90" width="18" height="${4 + Math.round(16 * p)}" rx="2" fill="#FFC53D"/>` + Array.from({ length: Math.round(4 * p) }, (_, i) => `<path d="M51 ${94 + i * 4}h18" stroke="#E0524C" stroke-width="1.6"/>`).join('');
-  const arms = drop ? arm(16, 84, 12) + arm(104, 84, -12) + '<path d="M8 116l26-6M86 118l26-8" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/><circle cx="110" cy="110" r="8" fill="#E0524C"/>'
+  const arms = drop ? arm(16, 84, 12) + arm(104, 84, -12)
     : happy ? arm(14, 50, -35) + arm(106, 50, 35)
-    : work ? `${knit}<g class="bdneedles"><path d="M40 80l30 12M80 80l-30 12" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/></g><ellipse class="bdarm l" cx="44" cy="88" rx="10" ry="8" fill="${c}"/><ellipse class="bdarm r" cx="76" cy="88" rx="10" ry="8" fill="${c}"/><path d="M60 112q20 4 40-4" stroke="#E0524C" stroke-width="1.5" fill="none"/><circle cx="102" cy="106" r="8" fill="#E0524C"/>`
+    : work ? arm(15, 82, 18) + arm(105, 82, -18)
     : arm(14, 82, 20) + `<g class="pipwave">${arm(104, 48, 30)}</g>`;
   const eyes = happy ? '<path d="M37 56q8-9 16 0M66 52q9-10 18 0" stroke="#22233A" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
     : `<g class="bdeyes"><ellipse cx="45" cy="56" rx="11" ry="12" fill="#fff"/><ellipse cx="75" cy="52" rx="12" ry="13" fill="#fff"/><circle cx="${drop ? 45 : 47}" cy="${drop ? 56 : 57}" r="${drop ? 6 : 8}" fill="#15151F"/><circle cx="${drop ? 75 : 77}" cy="${drop ? 52 : 53}" r="${drop ? 6.5 : 8.5}" fill="#15151F"/><circle cx="50" cy="53" r="2.6" fill="#fff"/><circle cx="80" cy="49" r="2.8" fill="#fff"/></g>`;
@@ -113,10 +112,9 @@ function buddySvg(kind, wear, state, prog, cls) {
   const mouth = drop ? `<ellipse cx="60" cy="${frog ? 50 : 68}" rx="3.5" ry="4.5" fill="#3A2A2A"/>` : `<path d="M54 ${frog ? 48 : 66}q6 6 12 0" stroke="#3A2A2A" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
   const whisk = kind === 'Otter' || kind === 'Cat' ? '<path d="M40 64l-12-2M40 68l-12 2M80 64l12-2M80 68l12 2" stroke="#3A2A2A" stroke-width="1.3" opacity=".55"/>' : '';
   const cheeks = `<circle cx="${frog ? 34 : 39}" cy="${frog ? 42 : 66}" r="5" fill="#F48FA8" opacity=".45"/><circle cx="${frog ? 86 : 81}" cy="${frog ? 42 : 66}" r="5" fill="#F48FA8" opacity=".45"/>`;
-  const p = Math.max(0, Math.min(1, prog || 0)), knit = `<rect x="51" y="92" width="18" height="${4 + Math.round(16 * p)}" rx="2" fill="#4C6FE0"/>` + Array.from({ length: Math.round(4 * p) }, (_, i) => `<path d="M51 ${96 + i * 4}h18" stroke="#FFC53D" stroke-width="1.6"/>`).join('');
-  const arms = drop ? `<ellipse cx="28" cy="80" rx="7" ry="11" fill="${c}"/><ellipse cx="92" cy="80" rx="7" ry="11" fill="${c}"/><path d="M8 116l26-6M86 118l26-8" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/><circle cx="110" cy="110" r="8" fill="#E0524C"/>`
+  const arms = drop ? `<ellipse cx="28" cy="80" rx="7" ry="11" fill="${c}"/><ellipse cx="92" cy="80" rx="7" ry="11" fill="${c}"/>`
     : happy ? `<ellipse cx="22" cy="58" rx="7" ry="12" fill="${c}" transform="rotate(-30 22 58)"/><ellipse cx="98" cy="58" rx="7" ry="12" fill="${c}" transform="rotate(30 98 58)"/>`
-    : state === 'work' ? `${knit}<g class="bdneedles"><path d="M40 80l30 12M80 80l-30 12" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/></g><ellipse class="bdarm l" cx="46" cy="90" rx="8" ry="7" fill="${c}"/><ellipse class="bdarm r" cx="74" cy="90" rx="8" ry="7" fill="${c}"/><path d="M60 112q20 4 40-4" stroke="#E0524C" stroke-width="1.5" fill="none"/><circle cx="102" cy="106" r="8" fill="#E0524C"/><path d="M96 102q6 4 12 0M97 108q5 3 10 0" stroke="#B93A35" stroke-width="1.2" fill="none"/>`
+    : state === 'work' ? `<ellipse cx="26" cy="82" rx="7" ry="11" fill="${c}"/><ellipse cx="94" cy="82" rx="7" ry="11" fill="${c}"/>`
     : `<ellipse cx="26" cy="82" rx="7" ry="11" fill="${c}"/><ellipse cx="94" cy="82" rx="7" ry="11" fill="${c}"/>`;
   if (/^Pip/.test(kind || '')) { const pw = w, pput = slot => { const it = BD_ITEMS[pw[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, 45).replace(/\{rx\}/g, 75).replace(/\{ey\}/g, 54).replace(/\{lx0\}/g, 36).replace(/\{rx0\}/g, 66).replace(/\{ey0\}/g, 48).replace(/\{bl\}/g, 53).replace(/\{bw\}/g, 14); }; return pipSvg(pw, state, prog, cls, pput, String(kind).split(':')[1]); }
   const put = slot => { const it = BD_ITEMS[w[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, lx).replace(/\{rx\}/g, rx).replace(/\{ey\}/g, ey).replace(/\{lx0\}/g, lx - 9).replace(/\{rx0\}/g, rx - 9).replace(/\{ey0\}/g, ey - 6).replace(/\{bl\}/g, lx + 8).replace(/\{bw\}/g, rx - lx - 16); };
@@ -127,10 +125,10 @@ const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
 const HOME = /^https:\/\/[a-z0-9-]+\.script\.googleusercontent\.com$/.test(String(D.o || '')) ? D.o : '';
 const KIND = D.kind && (BD_LOOK[D.kind] || /^Pip/.test(D.kind)) ? D.kind : 'Pip';
-const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }], ['Pip:sun', { neck: 'scarf' }], ['Pip:lilac', { face: 'glasses' }], ['Pip:peach', { head: 'flowers' }], ['Pip:teal', { head: 'cap' }], ['Pip:pink', { neck: 'bowtie' }], ['Pip:mint', { head: 'crown' }]];      /* Pip's friends: Pips in other colours */
-const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5]];
+const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }], ['Pip:sun', { neck: 'scarf' }], ['Pip:lilac', { face: 'glasses' }], ['Pip:peach', { head: 'flowers' }], ['Pip:teal', { head: 'cap' }], ['Pip:pink', { neck: 'bowtie' }], ['Pip:mint', { head: 'crown' }], ['Pip:sun', { head: 'beanie' }], ['Pip:lilac', { head: 'headphones' }]];      /* 10 friends, so the score is easy: 8 of 10 = 80% */
+const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5], [70, 470, .55], [1540, 470, .55]];
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
-let thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
+let run = 0, thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
 $('cls').textContent = D.cls && D.cls !== '*' ? D.cls : D.cls === '*' ? 'All classes' : 'Class sidekick'; $('thrin').value = thr; $('every').value = String(every);
 function bush(x, y, s) { return `<g transform="translate(${x} ${y}) scale(${s})"><ellipse cx="-70" cy="20" rx="70" ry="50" fill="#4F9D4A"/><ellipse cx="60" cy="18" rx="74" ry="52" fill="#58A852"/><ellipse cx="-5" cy="-10" rx="80" ry="62" fill="#63B65C"/><ellipse cx="20" cy="40" rx="120" ry="38" fill="#4F9D4A"/><circle cx="-30" cy="-30" r="8" fill="#F7A8C8"/><circle cx="40" cy="-14" r="7" fill="#FFE07A"/></g>`; }
 function paintScene() {
@@ -160,8 +158,11 @@ async function popOut() {
 }
 function setMood(m, ms) { mood = m; moodT = ms ? Date.now() + ms : 0; paintPip(); }
 let msgT = 0; function say(t, ms) { const m = $('msg'); m.textContent = t; m.classList.add('in'); clearTimeout(msgT); msgT = setTimeout(() => m.classList.remove('in'), ms || 3500); }
+/* the score: friends out of the friends there has been time for (a new friend every few calm seconds), as a % and a letter */
+function score() { const could = Math.min(FRIENDS.length, Math.floor(run / every)), pct = could ? Math.round(100 * Math.min(outN, could) / could) : 100;
+  return { could, pct, letter: pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F' }; }
 function show() { if (MINI) { const d = MINI.document, m = d.getElementById('pmins'); if (m) { m.textContent = Math.floor(calm / 60); d.getElementById('pdots').innerHTML = FRIENDS.map((f, i) => `<i class="${i < outN ? 'on' : ''}" style="--c:${(PIP_COLORS[f[0].split(':')[1]] || PIP_COLORS.blue)[1]}"></i>`).join(''); d.getElementById('pthr').style.left = thr + '%'; d.getElementById('ppause').textContent = running ? 'Pause' : 'Resume'; } }
-  $('mins').textContent = Math.floor(calm / 60); $('out').textContent = outN + ' of ' + FRIENDS.length + ' friends here'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
+  $('mins').textContent = Math.floor(calm / 60); { const sc = score(); $('score').textContent = sc.could ? sc.pct + '% · ' + sc.letter : '–'; $('scoren').textContent = sc.could ? outN + ' of ' + sc.could + ' friends' : 'Starts with the first friend'; } $('out').textContent = outN + ' of ' + FRIENDS.length + ' friends here'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
 /* the room's volume, 0 to 100, from the microphone (no recording: only the loudness of each moment is measured) */
 async function micOn() {
   stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -186,6 +187,7 @@ setInterval(() => { if (moodT && Date.now() > moodT) setMood(running ? 'work' : 
 function step() {
   if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle');
   if (!running) return;
+  run++;      /* running seconds: how many friends could be out by now */
   if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
   if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say('A friend came to play!'); outN++; streak = 0; setMood('happy', 2600);
     if (outN === FRIENDS.length) setTimeout(() => { say('All your friends are here! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
@@ -206,9 +208,10 @@ $('full').onclick = () => { try { document.fullscreenElement ? document.exitFull
 $('thrin').oninput = e => { thr = +e.target.value; store('cs-thr', thr); $('thr').style.left = thr + '%'; };
 $('every').onchange = e => { every = +e.target.value; store('cs-every', every); show(); };
 $('end').onclick = async () => { running = false; setMood('happy'); show(); $('end').disabled = true; say('Sending ' + Math.floor(calm / 60) + ' calm minutes to Study Hall…', 60000);
+  const sc = score(), fin = sc.could ? 'Final score: ' + outN + ' of ' + sc.could + ' friends, ' + sc.pct + '% (' + sc.letter + '). ' : '';
   const r = await report(true); $('end').disabled = false;
-  if (r) { say(r.msg || 'Done!', 15000); $('end').textContent = 'Close'; $('end').onclick = () => window.close(); }
-  else say(HOME && window.opener ? 'Study Hall did not answer. Keep its tab open, or click End quiet time on the Study Sidekick page there.' : 'Open this page from Study Sidekick in Study Hall to give rewards. ' + Math.floor(calm / 60) + ' calm minutes.', 15000); };
+  if (r) { say(fin + (r.msg || 'Done!'), 20000); $('end').textContent = 'Close'; $('end').onclick = () => window.close(); }
+  else say(HOME && window.opener ? 'Study Hall did not answer. Keep its tab open, or click End quiet time on the Study Sidekick page there.' : 'Open this page from Study Sidekick in Study Hall to give rewards. ' + fin + Math.floor(calm / 60) + ' calm minutes.', 20000); };
 addEventListener('beforeunload', e => { if (running && calm > 30) { report(false); e.preventDefault(); e.returnValue = ''; } });
 $('thr').style.left = thr + '%'; paintScene(); show();
 </script>
