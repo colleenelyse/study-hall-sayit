@@ -96,7 +96,7 @@ function recWire() {
     const id = Date.now() + '', data = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(u.blob); });
     let waited = setTimeout(() => { sb.disabled = false; msg.innerHTML = 'Study Hall did not answer. Check that its tab is still open and you are signed in, then tap Send again, or tap <b>Download</b>.'; }, 90000);
     const hear = e => { if (e.origin !== HOME || !e.data || e.data.type !== 'sayit-saved' || e.data.id !== id) return; clearTimeout(waited); window.removeEventListener('message', hear); sb.disabled = false;
-      if (e.data.ok) { window.UNSENT = null; $('sendbox').innerHTML = '<p><b>✓ Sent to your teacher.</b></p><p class="hint">' + esc(e.data.name || '') + '</p>'; }
+      if (e.data.ok) { window.UNSENT = null; $('sendbox').innerHTML = '<p><b>✓ Sent to your teacher.</b></p><p class="hint">' + esc(e.data.name || '') + '</p><p>You can close this tab now and go back to Study Hall.</p>'; }
       else msg.textContent = (e.data.msg || 'It did not send.') + ' You can tap Download instead.'; };
     window.addEventListener('message', hear);
     try { window.opener.postMessage({ type: 'sayit-rec', id, data, mime: u.blob.type, unit: D.n || '', list: u.log }, HOME); } catch (e) { clearTimeout(waited); sb.disabled = false; msg.innerHTML = 'This page cannot reach Study Hall. Tap <b>Download</b>, then send the file from Study Hall.'; }
@@ -118,7 +118,7 @@ function start() {
         <button class="mic" id="mic" aria-label="Tap, then say the word">${MIC}</button><div class="lvl" aria-hidden="true"><i id="lvl"></i></div><p class="micname" id="micname"></p><p class="hint" id="hint">Tap the microphone, then say the word.</p>
         <div class="result" id="res"></div>
         <div class="row"><button class="btn" id="skip">Skip</button></div></div>
-      <p class="note">${RECORDS ? '🔴 Your teacher would like a recording. While the microphone is on, what you say is recorded. At the end you choose whether to send it.' : 'Your voice is only listened to by your browser to check the word. Nothing is recorded or saved.'}</p>`;
+      <p class="note">${RECORDS ? '🔴 Your teacher would like a recording. While the microphone is on, what you say is recorded. At the end you choose whether to send it. Keep the Study Hall tab open: your recording goes back through it.' : 'Your voice is only listened to by your browser to check the word. Nothing is recorded or saved.'}</p>`;
     $('mic').onclick = () => listen(w); $('skip').onclick = () => { res.push([w, 0, '']); window.LOG.push([w[0], 0, '']); next(); }; showMic();
   };
   const next = () => { i++; tries = 0; if (i < words.length) paint(); else done(); };
@@ -184,9 +184,9 @@ function start() {
     app.innerHTML = `<div class="card"><p class="end">${pct >= .8 ? 'Wonderful!' : pct >= .5 ? 'Nice work!' : 'Good practice!'}</p><p class="stars">${'★'.repeat(Math.max(1, Math.round(pct * 5)))}${'☆'.repeat(5 - Math.max(1, Math.round(pct * 5)))}</p>
       <p><b>${great}</b> of ${res.length} said just right</p>
       <ul class="sum">${res.map(x => `<li><span>${esc(x[0][0])}</span><span>${x[1] === 2 ? '✓ Great' : x[1] === 1 ? '≈ Close' : x[2] ? '✗ Try again' : '– Skipped'}</span></li>`).join('')}</ul>
-      ${recBox()}<div class="row"><button class="btn main" id="redo">Practice the tricky ones</button><button class="btn" id="close">Close</button></div></div>`;
+      ${recBox()}<div class="row"><button class="btn main" id="redo">Practice the tricky ones</button><button class="btn" id="close">Close this tab</button></div><p class="note">When you are done, close this tab or click back to your Study Hall tab.</p></div>`;
     recWire();
-    $('close').onclick = () => window.close();
+    $('close').onclick = () => { window.close(); setTimeout(() => { const n = document.querySelector('.card .note:last-child'); if (n) n.innerHTML = '<b>This tab could not close itself.</b> Close it with the × on the tab, or click your Study Hall tab.'; }, 300); };
     $('redo').onclick = () => { const tricky = res.filter(x => x[1] < 2).map(x => x[0]); if (!tricky.length) return; D.w = tricky; start(); };
   }
   paint();
