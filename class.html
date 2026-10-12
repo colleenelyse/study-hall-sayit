@@ -136,8 +136,8 @@ const pipAnimations = {
     sequence: Array.from({ length: 32 }, (_, i) => [i, i === 5 ? 120 : i === 4 || i === 6 ? 240 : 380]) },
   /* priority 1: special moments. They pause the idle loop, play once, and the loop comes back. */
   dance: { label: 'Dance', src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' },
-  /* a backflip: crouch, jump (lift: from step 2 to step 8, up to 12% of the box), flip, land, wave. inset: his arms touch the cell edges, so 8px are trimmed off each cell */
-  backflip: { label: 'Flip', src: 'animations/pip_anim_backflip.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, inset: 8, lift: [2, 8, .12],
+  /* cartwheel (Colleen's first flip, renamed so a real backflip can be Flip): crouch, jump (lift: from step 2 to step 8, up to 12% of the box), flip, land, wave. inset: his arms touch the cell edges, so 8px are trimmed off each cell */
+  cartwheel: { label: 'Cartwheel', src: 'animations/pip_anim_cartwheel.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, inset: 8, lift: [2, 8, .12],
     sequence: [[0, 220], [1, 200], [2, 120], [3, 95], [4, 95], [5, 95], [6, 95], [7, 95], [8, 130], [9, 200], [10, 200], [11, 380]] },
   /* squish and jump: crouch, squish, spring up, the top of the jump, down, land, squish, recover. The art draws the jump itself, but its two rows
      stand on different ground lines, so every frame stands on one line (anchor feet) and rise lifts the three frames in the air (sheet pixels) */
@@ -145,15 +145,15 @@ const pipAnimations = {
     sequence: [[0, 100], [1, 150], [2, 220], [3, 120], [4, 180], [5, 150], [6, 130], [7, 220], [8, 180], [9, 350]] },
   /* rubber band: he leans back and stretches taller and taller like a rubber band, holds it, snaps back with a wobble and a squish, bounces and waves.
      Colleen's sheet had figures over the cell lines, so its 12 figures were cut out and repacked into 6 x 2 cells of 380 px, feet on one line */
-  rubber_band: { label: 'Rubber band', test: true, src: 'animations/pip_anim_rubber_band.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55,
+  rubber_band: { label: 'Rubber band', src: 'animations/pip_anim_rubber_band.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55,
     sequence: [[0, 120], [1, 120], [2, 130], [3, 140], [4, 160], [5, 240], [6, 90], [7, 160], [8, 120], [9, 130], [10, 150], [11, 350]] },
   /* pancake (Colleen's second version): squish flat as a pancake, spring up high, land, flatten again, pop back up. Her sheet was not an even grid, so
      its 12 figures were repacked into 6 x 2 cells of 300 px, feet on one line; rise puts back the four frames in the air (about half their height on her sheet, so his head stays in the box) */
-  pancake: { label: 'Pancake', test: true, src: 'animations/pip_anim_pancake_v2.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55, rise: [0, 0, 0, 0, 7, 46, 56, 29, 0, 0, 0, 0],
+  pancake: { label: 'Pancake', src: 'animations/pip_anim_pancake_v2.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55, rise: [0, 0, 0, 0, 7, 46, 56, 29, 0, 0, 0, 0],
     sequence: [[0, 120], [1, 120], [2, 140], [3, 350], [4, 110], [5, 130], [6, 180], [7, 120], [8, 140], [9, 300], [10, 150], [11, 350]] },
   /* spin: he turns all the way round (front, side, back, side, front) twice, gets dizzy (spiral eyes), laughs and waves. Colleen's 4 x 3 sheet was
      repacked into 6 x 2 cells of 380 px, feet on one line */
-  spin: { label: 'Spin', test: true, src: 'animations/pip_anim_spin.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 35,
+  spin: { label: 'Spin', src: 'animations/pip_anim_spin.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 35,
     sequence: [[0, 120], [1, 65], [2, 65], [3, 65], [4, 65], [5, 65], [6, 65], [1, 65], [2, 65], [3, 65], [4, 65], [5, 65], [6, 65], [7, 150], [8, 150], [9, 450], [10, 300], [11, 350]] },
   /* stretch and snap: a little squish, then he stretches up tall with his arms up, holds it, snaps back into a squash, bounces and settles. Colleen's
      4 x 3 sheet was repacked into 6 x 2 cells of 380 px, feet on one line */
@@ -343,7 +343,7 @@ function pipStart() { const c = $('pipc'); if (!c) return; PIPP = new PipAnimati
 function paintPip() {
   if (pipReal) {
     const w = $('pipwrap'); if (w) { w.classList.toggle('startle', mood === 'drop'); }
-    if (mood === 'happy' && !PIPP.playing) PIPP.play(Math.random() < .5 ? 'dance' : 'backflip');      /* a celebration for each new friend */
+    if (mood === 'happy' && !PIPP.playing) { const all = Object.keys(pipAnimations).filter(k => !pipAnimations[k].loop && !pipAnimations[k].test); PIPP.play(all[Math.floor(Math.random() * all.length)]); }      /* a celebration for each new friend: any approved one */
   } else { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, 0).replace('<svg ', '<svg width="120" height="132" '); }
   if (MINI) { const p = MINI.document.getElementById('ppip'); if (p) { if (pipReal) { if (!p.querySelector('img')) p.innerHTML = '<img src="pip/pip_idle.webp" alt="Pip" style="width:100%;height:100%;object-fit:contain">'; p.classList.toggle('startle', mood === 'drop'); } else p.innerHTML = buddySvg(KIND, {}, mood, 0); } }
 }
