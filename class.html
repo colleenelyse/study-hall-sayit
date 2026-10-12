@@ -154,7 +154,11 @@ const pipAnimations = {
   /* spin: he turns all the way round (front, side, back, side, front) twice, gets dizzy (spiral eyes), laughs and waves. Colleen's 4 x 3 sheet was
      repacked into 6 x 2 cells of 380 px, feet on one line */
   spin: { label: 'Spin', test: true, src: 'animations/pip_anim_spin.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 35,
-    sequence: [[0, 120], [1, 65], [2, 65], [3, 65], [4, 65], [5, 65], [6, 65], [1, 65], [2, 65], [3, 65], [4, 65], [5, 65], [6, 65], [7, 150], [8, 150], [9, 450], [10, 300], [11, 350]] }
+    sequence: [[0, 120], [1, 65], [2, 65], [3, 65], [4, 65], [5, 65], [6, 65], [1, 65], [2, 65], [3, 65], [4, 65], [5, 65], [6, 65], [7, 150], [8, 150], [9, 450], [10, 300], [11, 350]] },
+  /* stretch and snap: a little squish, then he stretches up tall with his arms up, holds it, snaps back into a squash, bounces and settles. Colleen's
+     4 x 3 sheet was repacked into 6 x 2 cells of 380 px, feet on one line */
+  stretch_snap: { label: 'Stretch and snap', test: true, src: 'animations/pip_anim_stretch_snap.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 55,
+    sequence: [[0, 120], [1, 120], [2, 130], [3, 140], [4, 160], [5, 160], [6, 240], [7, 90], [8, 160], [9, 130], [10, 150], [11, 350]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
      between two poses, so long ones show a double face: real smoothness needs more frames.
