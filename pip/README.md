@@ -12,7 +12,9 @@ The live copies are on GitHub Pages (Settings row **Pip art folder link**,
 
 ## Sheets that are not an even grid
 Add `layout: 'figures'`: the player finds each figure by its outline and numbers them left to right, row by row
-(the idle sheet has 57: rows of 11, 12, 11, 12, 11). Use `sequence: [[frame, ms], ...]` to choose the frames and how long each shows.
+Use `sequence: [[frame, ms], ...]` to choose the frames and how long each shows.
+
+The idle sheet (`pip_anim_idle.webp`) is an even 8 x 4 grid of 32 front-facing frames, played in order (about 0.38 s each, a quick blink).
 
 ## Priorities
 `priority: 3` with `loop: true` is the idle loop (the default). One-off animations (`priority: 1`) pause it, play once, then it resumes.

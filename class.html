@@ -32,7 +32,7 @@
   #start h1 { font: 700 2rem Fraunces, Georgia, serif; margin: 0 0 8px } #start p { margin: 0 0 16px; color: #4A5270 }
   .pipwrap { width: 100%; height: 100%; transform-origin: 50% 96%; animation: pipbob 3.2s ease-in-out infinite } #pipc { width: 100%; height: 100%; display: block }
   @keyframes pipbob { 0%, 100% { transform: translateY(0) rotate(0) scale(1, 1) } 25% { transform: translateY(-1.8%) rotate(-1.6deg) scale(.99, 1.01) } 50% { transform: translateY(0) rotate(0) scale(1.01, .99) } 75% { transform: translateY(-1.2%) rotate(1.6deg) scale(.99, 1.01) } }
-  .pipwrap.startle, #ppip.startle { animation: pipstartle .55s ease 2 } @keyframes pipstartle { 15% { transform: translateY(-8%) scale(.95, 1.06) } 35% { transform: translateY(0) scale(1.06, .94) translateX(-3%) } 55% { transform: translateX(3%) } 75% { transform: translateX(-2%) } }
+  .pipwrap.looping { animation: none } .pipwrap.startle, .pipwrap.looping.startle, #ppip.startle { animation: pipstartle .55s ease 2 } @keyframes pipstartle { 15% { transform: translateY(-8%) scale(.95, 1.06) } 35% { transform: translateY(0) scale(1.06, .94) translateX(-3%) } 55% { transform: translateX(3%) } 75% { transform: translateX(-2%) } }
   @media (prefers-reduced-motion: reduce) { .pipwrap, .pipwrap.startle { animation: none } }
   #finbox { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(27, 34, 56, .35) } #finbox .card { background: #fff; border-radius: 22px; padding: 24px 28px; max-width: 460px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .25) } #finbox h2 { font: 700 1.6rem Fraunces, Georgia, serif; margin: 0 0 8px } #finbox p { margin: 0 0 16px; color: #4A5270 }
   .ring { width: 54px; height: 54px } .hidden { display: none !important }
@@ -128,12 +128,11 @@ function buddySvg(kind, wear, state, prog, cls) {
 /* Pip the Sprite's player, copied from Study Hall (Index.html); his files are in pip/ beside this page */
 const S = { set: { pipArt: 'pip/' } };
 const pipAnimations = {
-  /* priority 3: the default loop, playing whenever nothing else does. layout 'figures': the sheet is not an even grid, so each figure is found
-     by its outline and numbered left to right, row by row (0 to 56 in this sheet). sequence: [frame, how long it shows in ms], chosen so
-     each change is small: breathing, a blink, a look one way and the other, a look up, a smile, settling (about 12 s). Its side and back
-     views (frames 11 to 22 and 34 to 45) are left out: turning to them would jump. */
-  idle: { src: 'animations/pip_anim_idle.webp', layout: 'figures', loop: true, priority: 3, anchor: 'feet', tweenMs: 140,
-    sequence: [[0, 900], [1, 700], [2, 800], [0, 600], [10, 110], [0, 700], [9, 800], [7, 900], [0, 250], [8, 900], [0, 250], [49, 700], [0, 500], [56, 700], [6, 600], [3, 300], [4, 300], [0, 800], [1, 700], [10, 110], [0, 600]] },
+  /* priority 3: the default loop, playing whenever nothing else does. The idle sheet is an even 8 x 4 grid of 32 front-facing frames that
+     change a little at a time (breathing and a blink, looking left, looking right and up, a smile, settling back to the first pose), so it
+     plays in order: about 0.38 s a frame, the blink (frame 5) quick, about 11.6 s in all. */
+  idle: { src: 'animations/pip_anim_idle.webp', cols: 8, rows: 4, frameCount: 32, loop: true, priority: 3, anchor: 'feet', tweenMs: 140,
+    sequence: Array.from({ length: 32 }, (_, i) => [i, i === 5 ? 120 : i === 4 || i === 6 ? 240 : 380]) },
   /* priority 1: special moments. They pause the idle loop, play once, and the loop comes back. */
   dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
@@ -269,8 +268,6 @@ class PipAnimationPlayer {
   }
   destroy() { cancelAnimationFrame(this.raf); this.raf = 0; if (this.playing) { this.playing.done(false); this.playing = null; } if (this.ro) this.ro.disconnect(); }
 }
-
-delete pipAnimations.idle;      /* the projector keeps Pip's resting picture until his idle sheet matches the rest of his art */
 /* ── the page ── */
 const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
@@ -313,7 +310,7 @@ function friendFace(i, state, ms) { const g = $('a' + i), f = FRIENDS[i]; if (!g
    If his files cannot load, the drawn Pip stands in. */
 let PIPP = null, pipReal = false;
 function pipStart() { const c = $('pipc'); if (!c) return; PIPP = new PipAnimationPlayer(c, { base: 'pip/', label: 'Pip the Sprite' });
-  PIPP.ready.then(() => { pipReal = !!(PIPP.still && PIPP.still.ok); $('pip').style.display = pipReal ? 'none' : ''; $('pipfo').style.display = pipReal ? '' : 'none'; paintPip(); }); }
+  PIPP.ready.then(() => { pipReal = !!(PIPP.still && PIPP.still.ok); $('pipwrap').classList.toggle('looping', PIPP.canLoop());      /* his own idle loop replaces the bob */ $('pip').style.display = pipReal ? 'none' : ''; $('pipfo').style.display = pipReal ? '' : 'none'; paintPip(); }); }
 function paintPip() {
   if (pipReal) {
     const w = $('pipwrap'); if (w) { w.classList.toggle('startle', mood === 'drop'); }
