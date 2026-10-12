@@ -8,7 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   /* Say It: a companion page for Study Hall. It runs outside Apps Script so the browser can ask for the microphone.
-     The words arrive in the link (after #) and never leave this device: nothing is uploaded or saved. */
+     The words arrive in the link (after #). Nothing is saved, unless the teacher collects recordings (r in the link): then the session is recorded as one
+     file while the microphone button is on, and the student may send it to the teacher at the end, back through the Study Hall tab that opened this page. */
   :root { --bg: #F3F4F8; --card: #fff; --ink: #1B2238; --muted: #5F6680; --line: #DDE1EA; --accent: #4C6FE0; --good: #2E9D63; --close: #D99A1E; --bad: #D64545; --sun: #FFC53D }
   @media (prefers-color-scheme: dark) { :root { --bg: #14172A; --card: #1E2340; --ink: #F1F3FA; --muted: #A9B0C8; --line: #333A5C; --accent: #8FA6FF } }
   * { box-sizing: border-box }
@@ -29,6 +30,7 @@
   .result span { color: var(--ink) } .answer { font: 700 1.3rem Fraunces, Georgia, serif }
   .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center }
   button.btn { border: 0; border-radius: 14px; padding: 12px 20px; font: 800 1rem Nunito, Arial, sans-serif; cursor: pointer; background: var(--line); color: var(--ink) } button.btn.main { background: var(--sun); color: #1B1E3C }
+  .sendbox { width: 100%; border: 2px dashed var(--accent); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px } .sendbox p { margin: 0 }
   .note { color: var(--muted); font-size: .85rem; text-align: center } .end { font: 700 2rem Fraunces, Georgia, serif } .stars { font-size: 2.4rem; letter-spacing: 6px }
   ul.sum { list-style: none; padding: 0; margin: 0; width: 100%; text-align: left } ul.sum li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line) }
 </style>
@@ -36,7 +38,7 @@
 <body>
 <main id="app"><div class="card"><p class="ask">Loading…</p></div></main>
 <script>
-/* The words come in the link: #<encoded JSON> { n: unit name, w: [[term, definition, language code], ...] }. */
+/* The words come in the link: #<encoded JSON> { n: unit name, w: [[term, definition, language code], ...], r: 1 when the teacher collects recordings, o: the Study Hall page's address }. */
 const MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 const LOCALE = { es: 'es-US', fr: 'fr-FR', de: 'de-DE', it: 'it-IT', pt: 'pt-BR', en: 'en-US', zh: 'zh-CN', ja: 'ja-JP', ko: 'ko-KR', ar: 'ar-SA', ru: 'ru-RU', nl: 'nl-NL', pl: 'pl-PL', tr: 'tr-TR', vi: 'vi-VN', la: 'it-IT', hi: 'hi-IN', he: 'he-IL', el: 'el-GR', sv: 'sv-SE' };
 const $ = id => document.getElementById(id), app = $('app');
@@ -56,9 +58,56 @@ function score(heard, term) {
 }
 function say(text, lang) { try { const u = new SpeechSynthesisUtterance(text); u.lang = LOCALE[lang] || lang || 'en-US'; const v = speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith((lang || 'en').toLowerCase())); if (v) u.voice = v; u.rate = .9; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
 
+/* ── the recording (only when the teacher collects them): one file for the whole session, paused whenever the microphone button is off ── */
+const RECORDS = !!(D && D.r) && !!window.MediaRecorder;
+const HOME = D && /^https:\/\/[a-z0-9-]+\.script\.googleusercontent\.com$/.test(String(D.o || '')) ? D.o : '';
+window.LOG = [];                                                     /* every word tried this session: [term, 2 great / 1 close / 0 not quite, what was heard] */
+function recOn() {
+  if (!RECORDS || !window.MSTREAM) return;
+  let R = window.RECD;
+  if (!R) { const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+    try { const mr = new MediaRecorder(window.MSTREAM, Object.assign({ audioBitsPerSecond: 32000 }, type ? { mimeType: type } : {})); R = window.RECD = { mr, parts: [], type: type || mr.mimeType || 'audio/webm' };
+      mr.ondataavailable = e => { if (e.data && e.data.size) R.parts.push(e.data); }; mr.start(1000); } catch (e) { return; } }
+  clearTimeout(R.t); R.want = true; R.loud = Date.now(); if (R.mr.state === 'paused') R.mr.resume();
+}
+/* Leave out silence: while the microphone button is on, the recording pauses after a quiet moment and goes on as soon as there is sound again. */
+function recTick(level) { const R = window.RECD; if (!R || !R.want) return; const now = Date.now();
+  if (level >= 6) { R.loud = now; if (R.mr.state === 'paused') R.mr.resume(); } else if (now - R.loud > 700 && R.mr.state === 'recording') R.mr.pause(); }
+function recOff() { const R = window.RECD; if (!R) return; clearTimeout(R.t); R.want = false; R.t = setTimeout(() => { if (R.mr.state === 'recording') R.mr.pause(); }, 400); }      /* a moment more, so the end of the word is kept */
+const recHas = () => !!window.RECD;
+function recFinish() { const R = window.RECD; window.RECD = null; return new Promise(ok => { if (R.mr.state === 'inactive') return ok(new Blob(R.parts, { type: R.type }));
+  R.mr.onstop = () => ok(new Blob(R.parts, { type: R.type.split(';')[0] })); clearTimeout(R.t); try { R.mr.stop(); } catch (e) { ok(new Blob(R.parts, { type: R.type })); } }); }
+window.addEventListener('beforeunload', e => { if (recHas() || window.UNSENT) { e.preventDefault(); e.returnValue = ''; } });
+function recBox() {
+  if (!RECORDS || (!recHas() && !window.UNSENT)) return '';
+  return '<div class="sendbox" id="sendbox"><p><b>Your teacher would like your recording.</b> It is one file with everything you said this time.</p><div class="row"><button class="btn main" id="send">Send to my teacher</button><button class="btn" id="dl">Download</button></div><p class="hint" id="sendmsg"></p></div>';
+}
+function recWire() {
+  const sb = $('send'); if (!sb) return; const msg = $('sendmsg');
+  const blobNow = async () => { if (recHas()) { window.UNSENT = { blob: await recFinish(), log: window.LOG.slice() }; window.LOG = []; } return window.UNSENT; };
+  $('dl').onclick = async () => { const u = await blobNow(); if (!u) return; const a = document.createElement('a'), ext = /mp4/.test(u.blob.type) ? 'm4a' : /ogg/.test(u.blob.type) ? 'ogg' : 'webm';
+    a.href = URL.createObjectURL(u.blob); a.download = 'Say It' + (D.n ? ' - ' + String(D.n).replace(/[\\\/:*?"<>|]+/g, '-') : '') + '.' + ext; document.body.appendChild(a); a.click(); a.remove();
+    msg.innerHTML = 'Downloaded. In the Study Hall tab, choose this file under <b>If sending does not work</b> to send it.'; };
+  sb.onclick = async () => {
+    const u = await blobNow(); if (!u) return;
+    if (!HOME || !window.opener) { msg.innerHTML = 'This page cannot reach Study Hall (it was not opened from Study Hall, or that tab was closed). Tap <b>Download</b>, then send the file from the Say It box in Study Hall.'; return; }
+    if (u.blob.size > 20 * 1024 * 1024) { msg.textContent = 'The recording is too big to send (over 20 MB). Tap Download and give it to your teacher another way.'; return; }
+    sb.disabled = true; msg.textContent = 'Sending…';
+    const id = Date.now() + '', data = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(u.blob); });
+    let waited = setTimeout(() => { sb.disabled = false; msg.innerHTML = 'Study Hall did not answer. Check that its tab is still open and you are signed in, then tap Send again, or tap <b>Download</b>.'; }, 90000);
+    const hear = e => { if (e.origin !== HOME || !e.data || e.data.type !== 'sayit-saved' || e.data.id !== id) return; clearTimeout(waited); window.removeEventListener('message', hear); sb.disabled = false;
+      if (e.data.ok) { window.UNSENT = null; $('sendbox').innerHTML = '<p><b>✓ Sent to your teacher.</b></p><p class="hint">' + esc(e.data.name || '') + '</p>'; }
+      else msg.textContent = (e.data.msg || 'It did not send.') + ' You can tap Download instead.'; };
+    window.addEventListener('message', hear);
+    try { window.opener.postMessage({ type: 'sayit-rec', id, data, mime: u.blob.type, unit: D.n || '', list: u.log }, HOME); } catch (e) { clearTimeout(waited); sb.disabled = false; msg.innerHTML = 'This page cannot reach Study Hall. Tap <b>Download</b>, then send the file from Study Hall.'; }
+  };
+}
+
+
 if (!D || !Array.isArray(D.w) || !D.w.length) app.innerHTML = '<div class="card"><p class="prompt">No words here</p><p class="hint">Open Say It from the Say It tile in Study Hall.</p></div>';
 else if (!SR) app.innerHTML = '<div class="card"><p class="prompt">Open this in Chrome</p><p class="hint">Say It listens with Chrome’s speech recognition. Open the link in Chrome (on a Chromebook it already is).</p></div>';
 else start();
+
 
 function start() {
   const words = D.w.slice(0, 60), res = []; let i = 0, tries = 0;
@@ -69,8 +118,8 @@ function start() {
         <button class="mic" id="mic" aria-label="Tap, then say the word">${MIC}</button><div class="lvl" aria-hidden="true"><i id="lvl"></i></div><p class="micname" id="micname"></p><p class="hint" id="hint">Tap the microphone, then say the word.</p>
         <div class="result" id="res"></div>
         <div class="row"><button class="btn" id="skip">Skip</button></div></div>
-      <p class="note">Your voice is only listened to by your browser to check the word. Nothing is recorded or saved.</p>`;
-    $('mic').onclick = () => listen(w); $('skip').onclick = () => { res.push([w, 0, '']); next(); }; showMic();
+      <p class="note">${RECORDS ? '🔴 Your teacher would like a recording. While the microphone is on, what you say is recorded. At the end you choose whether to send it.' : 'Your voice is only listened to by your browser to check the word. Nothing is recorded or saved.'}</p>`;
+    $('mic').onclick = () => listen(w); $('skip').onclick = () => { res.push([w, 0, '']); window.LOG.push([w[0], 0, '']); next(); }; showMic();
   };
   const next = () => { i++; tries = 0; if (i < words.length) paint(); else done(); };
   /* One listener for the whole page, kept in window.REC (Chrome may stop one it thinks nobody holds). The microphone is only asked for separately when the
@@ -84,7 +133,7 @@ function start() {
     if (window.MSTREAM) return;
     try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }), ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(), buf = new Uint8Array(256);
       ctx.createMediaStreamSource(st).connect(an); window.MSTREAM = st; window.MIC_NAME = (st.getAudioTracks()[0] || {}).label || '';
-      const tick = () => { an.getByteTimeDomainData(buf); let m = 0; buf.forEach(v => { m = Math.max(m, Math.abs(v - 128)); }); window.LEVEL = m; if (running) window.LEVEL_MAX = Math.max(window.LEVEL_MAX || 0, m);
+      const tick = () => { an.getByteTimeDomainData(buf); let m = 0; buf.forEach(v => { m = Math.max(m, Math.abs(v - 128)); }); window.LEVEL = m; recTick(m); if (running) window.LEVEL_MAX = Math.max(window.LEVEL_MAX || 0, m);
         const b = $('lvl'); if (b) b.style.width = Math.min(100, m * 1.6) + '%'; requestAnimationFrame(tick); };
       tick(); showMic();
     } catch (e) {}
@@ -108,11 +157,11 @@ function start() {
     await startMeter(); window.LEVEL_MAX = 0;
     const r = window.REC || (window.REC = new SR()), trail = []; let got = false, err = '';
     r.lang = LOCALE[w[2]] || w[2] || 'en-US'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
-    r.onstart = () => { running = true; trail.push('start'); mic.classList.add('on'); hint.textContent = 'Listening… say it now. Tap again when you are done, or just wait.'; };
+    r.onstart = () => { running = true; recOn(); trail.push('start'); mic.classList.add('on'); hint.textContent = 'Listening… say it now. Tap again when you are done, or just wait.'; };
     r.onaudiostart = () => trail.push('audio'); r.onspeechstart = () => trail.push('speech');
     r.onresult = e => { got = true; trail.push('result'); show(w, [...e.results[0]].map(a => a.transcript)); };
     r.onerror = e => { err = e.error; trail.push('error ' + e.error); };
-    r.onend = () => { running = false; trail.push('end'); mic.classList.remove('on'); if (got) return;
+    r.onend = () => { running = false; recOff(); trail.push('end'); mic.classList.remove('on'); if (got) return;
       /* cut off before any speech (headphones switching to their microphone, or another tab listening): try again by itself, up to twice */
       if (window.MSTREAM && (window.LEVEL_MAX || 0) < 4) { hint.innerHTML = 'No sound came in from the microphone' + (window.MIC_NAME ? ' (' + esc(window.MIC_NAME) + ')' : '') + '. Check that the right microphone is chosen and not muted: on a Mac, System Settings &gt; Sound &gt; Input; on a Chromebook, Quick Settings &gt; the arrow next to the volume &gt; Input.'; return; }
       if (window.USER_STOP) { hint.textContent = 'I did not catch that. Tap the microphone, say the word, then wait a moment (or tap again when you are done).'; return; }
@@ -127,7 +176,7 @@ function start() {
     box.innerHTML = `<b>${kind === 'good' ? 'Great!' : kind === 'close' ? 'Close!' : 'Not quite'}</b><span>I heard: “${esc(alts[0] || '')}”</span>${kind === 'good' ? '' : `<span>The word is <span class="answer">${esc(w[0])}</span></span>`}
       <div class="row"><button class="btn" id="hear">🔊 Hear it</button>${kind === 'good' ? '' : '<button class="btn" id="again">Try again</button>'}<button class="btn main" id="nx">${i + 1 < words.length ? 'Next' : 'Finish'}</button></div>`;
     $('hear').onclick = () => say(w[0], w[2]); const a = $('again'); if (a) a.onclick = () => { box.className = 'result'; $('hint').textContent = 'Tap the microphone, then say the word.'; };
-    $('nx').onclick = () => { res.push([w, kind === 'good' ? 2 : kind === 'close' ? 1 : 0, alts[0] || '']); next(); };
+    $('nx').onclick = () => { const k = kind === 'good' ? 2 : kind === 'close' ? 1 : 0; res.push([w, k, alts[0] || '']); window.LOG.push([w[0], k, alts[0] || '']); next(); };
     if (kind !== 'good') say(w[0], w[2]);
   }
   function done() {
@@ -135,7 +184,8 @@ function start() {
     app.innerHTML = `<div class="card"><p class="end">${pct >= .8 ? 'Wonderful!' : pct >= .5 ? 'Nice work!' : 'Good practice!'}</p><p class="stars">${'★'.repeat(Math.max(1, Math.round(pct * 5)))}${'☆'.repeat(5 - Math.max(1, Math.round(pct * 5)))}</p>
       <p><b>${great}</b> of ${res.length} said just right</p>
       <ul class="sum">${res.map(x => `<li><span>${esc(x[0][0])}</span><span>${x[1] === 2 ? '✓ Great' : x[1] === 1 ? '≈ Close' : x[2] ? '✗ Try again' : '– Skipped'}</span></li>`).join('')}</ul>
-      <div class="row"><button class="btn main" id="redo">Practice the tricky ones</button><button class="btn" id="close">Close</button></div></div>`;
+      ${recBox()}<div class="row"><button class="btn main" id="redo">Practice the tricky ones</button><button class="btn" id="close">Close</button></div></div>`;
+    recWire();
     $('close').onclick = () => window.close();
     $('redo').onclick = () => { const tricky = res.filter(x => x[1] < 2).map(x => x[0]); if (!tricky.length) return; D.w = tricky; start(); };
   }
