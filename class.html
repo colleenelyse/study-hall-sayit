@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Sidekick · Study Hall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Class Sidekick: a companion page for Study Hall's Study Sidekick, for the projector. It listens to how loud the room is (it never records):
+     while the room stays calm, more friends come out of hiding; when it gets too loud, the newest one hides again. Calm minutes go back to
+     Study Hall through the tab that opened this page, which gives the rewards. */
+  :root { --ink: #1B2238; --card: rgba(255, 255, 255, .92); --accent: #4C6FE0; --good: #2E9D63; --bad: #D64545; --sun: #FFC53D }
+  * { box-sizing: border-box } html, body { margin: 0; height: 100%; overflow: hidden; background: #BFE6F5; font: 700 1rem/1.3 Nunito, Arial, sans-serif; color: var(--ink) }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100% }
+  .ani { opacity: 0; transform: translateY(70px) scale(.5); transform-box: fill-box; transform-origin: 50% 100%; transition: transform .9s cubic-bezier(.2, 1.5, .4, 1), opacity .4s } .ani.out { opacity: 1; transform: none } .ani.hide { transition: transform .35s ease-in, opacity .35s .1s }
+  .bar { position: fixed; left: 16px; right: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; pointer-events: none } .bar > * { pointer-events: auto }
+  .top { top: 14px } .bottom { bottom: 14px }
+  .pill { background: var(--card); border-radius: 18px; padding: 10px 16px; box-shadow: 0 6px 18px rgba(0, 0, 0, .12) }
+  .big { font: 700 clamp(1.4rem, 3.4vw, 2.8rem)/1 Fraunces, Georgia, serif } .small { font-size: .85rem; color: #4A5270 }
+  button { font: 800 1rem Nunito, Arial, sans-serif; border: 0; border-radius: 14px; padding: 11px 16px; cursor: pointer; background: #fff; color: var(--ink); box-shadow: 0 4px 0 rgba(0, 0, 0, .15) }
+  button.main { background: var(--sun) } button.go { background: var(--good); color: #fff } .grow { flex: 1 }
+  .meter { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 6px }
+  .track { position: relative; height: 26px; border-radius: 99px; background: linear-gradient(90deg, #7ED69B, #FFD66B 60%, #F07B7B); overflow: hidden; box-shadow: inset 0 0 0 3px #fff }
+  .fill { position: absolute; inset: 0 auto 0 0; background: rgba(27, 34, 56, .55); mix-blend-mode: multiply } .mask { position: absolute; inset: 0 0 0 auto; background: rgba(255, 255, 255, .78) }
+  .thr { position: absolute; top: -4px; bottom: -4px; width: 5px; margin-left: -2px; background: var(--ink); border-radius: 3px }
+  input[type=range] { width: 100% } .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap }
+  .loud .track { animation: shake .35s 2 } @keyframes shake { 25% { transform: translateX(-6px) } 75% { transform: translateX(6px) } }
+  #msg { position: fixed; top: 92px; left: 50%; transform: translateX(-50%) scale(.8); opacity: 0; transition: .35s cubic-bezier(.2, 1.5, .4, 1); background: var(--ink); color: #fff; border-radius: 20px; padding: 12px 24px; font: 700 clamp(1.1rem, 2.6vw, 2.2rem) Fraunces, Georgia, serif; text-align: center; max-width: 90vw; pointer-events: none }
+  #msg.in { opacity: 1; transform: translateX(-50%) scale(1) }
+  #start { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(191, 230, 245, .7) } #start .card { background: #fff; border-radius: 24px; padding: 28px; max-width: 520px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .18) }
+  #start h1 { font: 700 2rem Fraunces, Georgia, serif; margin: 0 0 8px } #start p { margin: 0 0 16px; color: #4A5270 }
+  .ring { width: 54px; height: 54px } .hidden { display: none !important }
+  .bdsvg { overflow: visible } .bd-work .bdneedles { animation: bdknit .5s ease-in-out infinite alternate; transform-origin: 60px 86px } @keyframes bdknit { to { transform: rotate(6deg) } }
+  .bdeyes { animation: bdblink 4.5s infinite; transform-origin: 60px 52px } @keyframes bdblink { 0%, 95%, 100% { transform: scaleY(1) } 97% { transform: scaleY(.1) } }
+  .bd-happy { animation: bdhop .65s ease-in-out infinite } @keyframes bdhop { 50% { transform: translateY(-6px) } } .pipwave { animation: pipwave 1.6s ease-in-out infinite; transform-origin: 98px 62px } @keyframes pipwave { 50% { transform: rotate(-16deg) } }
+  .bd-drop { animation: bdshake .4s ease 2 } @keyframes bdshake { 25% { transform: translateX(-3px) } 75% { transform: translateX(3px) } }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
+<div class="bar top"><div class="pill"><div class="small" id="cls">Class sidekick</div><div class="big"><span id="mins">0</span> calm min</div></div>
+  <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 8 out</b></div></div>
+  <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><span class="grow"></span><button id="pause">Pause</button><button id="full">Full screen</button><button class="go" id="end">End and give rewards</button></div>
+<div id="msg" role="status"></div>
+<div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><span class="small grow" id="mic"></span><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
+  <div class="track"><div class="fill" id="fill"></div><div class="mask" id="mask"></div><div class="thr" id="thr"></div></div><input type="range" id="thrin" min="10" max="95" value="60" aria-label="Too loud line"></div></div>
+<div id="start"><div class="card"><h1>Class Sidekick</h1><p>Keep the room calm and friends come out to join your sidekick. Too loud, and the newest friend hides. This page listens to how loud the room is. It never records.</p><button class="main" id="go">Start quiet time</button><p class="small" id="err" style="margin:12px 0 0"></p></div></div>
+<script>
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+/* the sidekick drawings, copied from Study Hall (Index.html) */
+const BD_LOOK = { Otter: ['#A97850', '#EBD3B5', '#8A5E3C'], Cat: ['#F2A65A', '#FBE3C4', '#D9853A'], Frog: ['#79C46B', '#D7F0B8', '#5DA851'], Bear: ['#9B6A4A', '#E2C3A0', '#7E5236'], Bunny: ['#E6E0EC', '#FFFFFF', '#F4B6C8'], Fox: ['#EE8A3A', '#FFF3E6', '#5A3420'] };
+const BD_ITEMS = {
+  bow: ['head', 'Bow', '<path d="M74 16l12-8v16zM74 16l-10-9v18z" fill="#F06EA9"/><circle cx="74" cy="16" r="3.5" fill="#D94F8E"/>'],
+  beanie: ['head', 'Beanie', '<path d="M31 36Q33 8 60 8T89 36z" fill="#E0524C"/><rect x="29" y="31" width="62" height="8" rx="4" fill="#B93A35"/><circle cx="60" cy="7" r="6" fill="#fff"/>'],
+  party: ['head', 'Party hat', '<path d="M47 30L60 -6 73 30z" fill="#8E5BD8"/><path d="M51 20l18-4M54 10l12-3" stroke="#FFC53D" stroke-width="3"/><circle cx="60" cy="-6" r="4" fill="#FFC53D"/>'],
+  cap: ['head', 'Cap', '<path d="M32 34Q34 10 60 10T88 34z" fill="#3A6FE0"/><path d="M60 30q24-2 36 4q-14 4-36 0z" fill="#2B54B5"/><circle cx="60" cy="11" r="3" fill="#2B54B5"/>'],
+  flowers: ['head', 'Flower crown', '<path d="M34 28Q60 14 86 28" stroke="#5BAA2A" stroke-width="3" fill="none"/>' + [[36, 26, '#F06EA9'], [47, 21, '#FFC53D'], [60, 19, '#fff'], [73, 21, '#8E5BD8'], [84, 26, '#F06EA9']].map(f => `<circle cx="${f[0]}" cy="${f[1]}" r="5.5" fill="${f[2]}"/><circle cx="${f[0]}" cy="${f[1]}" r="2" fill="#E8A21B"/>`).join('')],
+  headphones: ['head', 'Headphones', '<path d="M26 52Q26 14 60 14T94 52" stroke="#33354A" stroke-width="5" fill="none"/><rect x="18" y="44" width="12" height="20" rx="5" fill="#E0524C"/><rect x="90" y="44" width="12" height="20" rx="5" fill="#E0524C"/>'],
+  tophat: ['head', 'Top hat', '<rect x="44" y="-6" width="32" height="30" rx="3" fill="#2B2D3A"/><rect x="44" y="14" width="32" height="6" fill="#E0524C"/><rect x="34" y="22" width="52" height="6" rx="3" fill="#2B2D3A"/>'],
+  crown: ['head', 'Crown', '<path d="M38 26l2-20 10 10 10-14 10 14 10-10 2 20z" fill="#FFC53D" stroke="#D99A1E" stroke-width="2"/><circle cx="60" cy="16" r="3" fill="#E0524C"/>'],
+  glasses: ['face', 'Glasses', '<g fill="none" stroke="#33354A" stroke-width="2.5"><circle cx="{lx}" cy="{ey}" r="8"/><circle cx="{rx}" cy="{ey}" r="8"/><path d="M{bl} {ey}h{bw}"/></g>'],
+  shades: ['face', 'Sunglasses', '<g fill="#22232E"><rect x="{lx0}" y="{ey0}" width="18" height="11" rx="4"/><rect x="{rx0}" y="{ey0}" width="18" height="11" rx="4"/></g><path d="M{bl} {ey}h{bw}" stroke="#22232E" stroke-width="2.5"/>'],
+  scarf: ['neck', 'Scarf', '<path d="M30 76q30 12 60 0v9q-30 12-60 0z" fill="#2E9D63"/><path d="M78 82l6 22-10 1-4-20z" fill="#2E9D63"/><path d="M38 80l6 3M52 84l6 1M66 84l6-2" stroke="#fff" stroke-width="3"/>'],
+  bowtie: ['neck', 'Bow tie', '<path d="M60 80l-12-7v14zM60 80l12-7v14z" fill="#E0524C"/><circle cx="60" cy="80" r="3.5" fill="#B93A35"/>'],
+  rugred: ['rug', 'Red rug', '<ellipse cx="160" cy="178" rx="92" ry="16" fill="#D45B55"/><ellipse cx="160" cy="178" rx="74" ry="11" fill="none" stroke="#F3C4A8" stroke-width="3" stroke-dasharray="8 6"/>'],
+  rugrainbow: ['rug', 'Rainbow rug', '<ellipse cx="160" cy="178" rx="96" ry="17" fill="#E0524C"/><ellipse cx="160" cy="178" rx="80" ry="14" fill="#FFC53D"/><ellipse cx="160" cy="178" rx="64" ry="11" fill="#5BAA2A"/><ellipse cx="160" cy="178" rx="48" ry="8" fill="#4C6FE0"/><ellipse cx="160" cy="178" rx="32" ry="5" fill="#8E5BD8"/>'],
+  fern: ['plant', 'Fern', '<path d="M24 160h28l-4 26H28z" fill="#C9744A"/>' + [-50, -25, 0, 25, 50].map(a => `<path d="M38 160q${a / 2} -30 ${a} -44" stroke="#3E9B4F" stroke-width="7" fill="none" stroke-linecap="round"/>`).join('')],
+  cactus: ['plant', 'Cactus', '<path d="M26 164h26l-3 22H29z" fill="#E8A06A"/><rect x="33" y="112" width="12" height="54" rx="6" fill="#4FA35A"/><path d="M33 140h-8v-14" stroke="#4FA35A" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M45 132h8v-12" stroke="#4FA35A" stroke-width="8" fill="none" stroke-linecap="round"/><circle cx="39" cy="110" r="4" fill="#F06EA9"/>'],
+  lamp: ['lamp', 'Lamp', '<path d="M286 186h20M296 186v-62" stroke="#5C5F72" stroke-width="4"/><path d="M280 126h32l-6-22h-20z" fill="#FFC53D"/><ellipse cx="296" cy="150" rx="26" ry="40" fill="#FFE9A8" opacity=".25"/>'],
+  starposter: ['poster', 'Star poster', '<rect x="36" y="30" width="54" height="66" rx="3" fill="#3A3F8F"/><path d="M63 46l5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z" fill="#FFC53D"/>'],
+  planetposter: ['poster', 'Planet poster', '<rect x="36" y="30" width="54" height="66" rx="3" fill="#1B1E3C"/><circle cx="63" cy="63" r="13" fill="#E0609E"/><ellipse cx="63" cy="63" rx="22" ry="6" fill="none" stroke="#FFC53D" stroke-width="3"/><circle cx="45" cy="40" r="1.6" fill="#fff"/><circle cx="82" cy="86" r="1.6" fill="#fff"/>'],
+  beanbag: ['seat', 'Beanbag', '<path d="M196 186q-6-34 22-40q36-6 44 24q4 16-10 16z" fill="#8E5BD8"/>'],
+  armchair: ['seat', 'Armchair', '<rect x="200" y="132" width="62" height="40" rx="10" fill="#2E9D63"/><rect x="194" y="150" width="74" height="26" rx="8" fill="#25804F"/><path d="M200 176v10M262 176v10" stroke="#6B4A2A" stroke-width="4"/>'],
+  stringlights: ['lights', 'String lights', '<path d="M0 14q80 26 160 6t160 8" stroke="#5C5F72" stroke-width="1.5" fill="none"/>' + [20, 60, 100, 140, 180, 220, 260, 300].map((x, i) => `<circle cx="${x}" cy="${20 + Math.round(9 * Math.sin(x / 50))}" r="4" fill="${['#FFC53D', '#E0524C', '#5BAA2A', '#4C6FE0'][i % 4]}"/>`).join('')],
+  curtains: ['curtains', 'Curtains', '<path d="M210 26h22q-6 34 0 66h-22z" fill="#E0609E"/><path d="M298 26h-22q6 34 0 66h22z" fill="#E0609E"/><rect x="206" y="22" width="96" height="6" rx="3" fill="#B5651D"/>']
+};
+const BD_SLOTS = [['head', 'Hats'], ['face', 'Glasses'], ['neck', 'Neck'], ['rug', 'Rug'], ['plant', 'Plant'], ['lamp', 'Lamp'], ['poster', 'Poster'], ['seat', 'Seat'], ['lights', 'Lights'], ['curtains', 'Curtains']];
+const BD_CLOTHES = ['head', 'face', 'neck'];
+/* Pip, Study Hall's own mascot (from Colleen's reference picture, assets/mascot-reference.webp): a soft blue blob with big shiny eyes,
+   eyebrows, an open smile, stubby arms and two little feet. Drawn here with gradients until her own art and animations arrive. */
+let BD_GID = 0;
+function pipSvg(wear, state, prog, cls, put) {
+  const g = 'pipg' + (++BD_GID), happy = state === 'happy', drop = state === 'drop', work = state === 'work';
+  const c = `url(#${g})`, arm = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="9" ry="15" fill="${c}" transform="rotate(${r} ${x} ${y})"/>`;
+  const p = Math.max(0, Math.min(1, prog || 0)), knit = `<rect x="51" y="90" width="18" height="${4 + Math.round(16 * p)}" rx="2" fill="#FFC53D"/>` + Array.from({ length: Math.round(4 * p) }, (_, i) => `<path d="M51 ${94 + i * 4}h18" stroke="#E0524C" stroke-width="1.6"/>`).join('');
+  const arms = drop ? arm(16, 84, 12) + arm(104, 84, -12) + '<path d="M8 116l26-6M86 118l26-8" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/><circle cx="110" cy="110" r="8" fill="#E0524C"/>'
+    : happy ? arm(14, 50, -35) + arm(106, 50, 35)
+    : work ? `${knit}<g class="bdneedles"><path d="M40 80l30 12M80 80l-30 12" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/></g><ellipse class="bdarm l" cx="44" cy="88" rx="10" ry="8" fill="${c}"/><ellipse class="bdarm r" cx="76" cy="88" rx="10" ry="8" fill="${c}"/><path d="M60 112q20 4 40-4" stroke="#E0524C" stroke-width="1.5" fill="none"/><circle cx="102" cy="106" r="8" fill="#E0524C"/>`
+    : arm(14, 82, 20) + `<g class="pipwave">${arm(104, 48, 30)}</g>`;
+  const eyes = happy ? '<path d="M37 56q8-9 16 0M66 52q9-10 18 0" stroke="#22233A" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+    : `<g class="bdeyes"><ellipse cx="45" cy="56" rx="11" ry="12" fill="#fff"/><ellipse cx="75" cy="52" rx="12" ry="13" fill="#fff"/><circle cx="${drop ? 45 : 47}" cy="${drop ? 56 : 57}" r="${drop ? 6 : 8}" fill="#15151F"/><circle cx="${drop ? 75 : 77}" cy="${drop ? 52 : 53}" r="${drop ? 6.5 : 8.5}" fill="#15151F"/><circle cx="50" cy="53" r="2.6" fill="#fff"/><circle cx="80" cy="49" r="2.8" fill="#fff"/></g>`;
+  const brows = drop ? '<path d="M36 38q8-6 16-2M68 32q8-5 16 0" stroke="#3A3F6B" stroke-width="3.5" fill="none" stroke-linecap="round"/>' : '<path d="M37 41q7-5 14-2M69 35q7-4 14 1" stroke="#3A3F6B" stroke-width="3.5" fill="none" stroke-linecap="round"/>';
+  const mouth = drop ? '<ellipse cx="61" cy="72" rx="4" ry="5" fill="#2A1A26"/>' : '<path d="M53 66q8 12 16 0z" fill="#2A1A26"/><ellipse cx="61" cy="72" rx="4.5" ry="2.6" fill="#F06272"/>';
+  return `<svg class="bdsvg ${cls || ''} bd-${state || 'idle'}" viewBox="0 -10 120 132" role="img" aria-label="Pip"><defs><radialGradient id="${g}" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#C8D0FB"/><stop offset=".5" stop-color="#93A2EE"/><stop offset="1" stop-color="#6D7DDA"/></radialGradient></defs>
+    ${happy || work || drop ? '' : ''}<path d="M60 16C90 16 102 42 102 66C102 88 98 100 92 106C86 112 78 110 72 104C66 100 54 100 48 104C42 110 34 112 28 106C22 100 18 88 18 66C18 42 30 16 60 16Z" fill="${c}"/>
+    <ellipse cx="44" cy="30" rx="14" ry="8" fill="#fff" opacity=".22" transform="rotate(-20 44 30)"/><circle cx="34" cy="72" r="6" fill="#F7A8C8" opacity=".4"/><circle cx="88" cy="68" r="6" fill="#F7A8C8" opacity=".4"/>
+    ${brows}${eyes}${mouth}${put('neck')}${arms}${put('face')}${put('head')}</svg>`;
+}
+function buddySvg(kind, wear, state, prog, cls) {
+  const L = BD_LOOK[kind] || BD_LOOK.Otter, [c, belly, dark] = L, w = wear || {}, frog = kind === 'Frog', ey = frog ? 24 : 52, lx = frog ? 42 : 47, rx = frog ? 78 : 73;
+  const ears = { Otter: `<circle cx="34" cy="32" r="8" fill="${dark}"/><circle cx="86" cy="32" r="8" fill="${dark}"/>`, Bear: `<circle cx="32" cy="28" r="12" fill="${c}"/><circle cx="88" cy="28" r="12" fill="${c}"/><circle cx="32" cy="28" r="6" fill="${belly}"/><circle cx="88" cy="28" r="6" fill="${belly}"/>`,
+    Cat: `<path d="M28 44L33 10 54 26z" fill="${c}"/><path d="M92 44L87 10 66 26z" fill="${c}"/><path d="M33 34l2-16 10 9z" fill="#F4B6C8"/><path d="M87 34l-2-16-10 9z" fill="#F4B6C8"/>`,
+    Fox: `<path d="M26 44L30 4 56 24z" fill="${c}"/><path d="M94 44L90 4 64 24z" fill="${c}"/><path d="M30 4l3 14 8-4z" fill="${dark}"/><path d="M90 4l-3 14-8-4z" fill="${dark}"/>`,
+    Bunny: `<ellipse cx="44" cy="8" rx="8" ry="24" fill="${c}" transform="rotate(-10 44 8)"/><ellipse cx="76" cy="8" rx="8" ry="24" fill="${c}" transform="rotate(10 76 8)"/><ellipse cx="44" cy="8" rx="4" ry="16" fill="${dark}" transform="rotate(-10 44 8)"/><ellipse cx="76" cy="8" rx="4" ry="16" fill="${dark}" transform="rotate(10 76 8)"/>`,
+    Frog: `<circle cx="42" cy="24" r="13" fill="${c}"/><circle cx="78" cy="24" r="13" fill="${c}"/>` }[kind] || '';
+  const body = `<path d="M60 18C88 18 98 40 98 64C98 94 84 110 60 110C36 110 22 94 22 64C22 40 32 18 60 18Z" fill="${c}"/><ellipse cx="60" cy="86" rx="24" ry="20" fill="${belly}"/>`;
+  const happy = state === 'happy', drop = state === 'drop';
+  const eyes = happy ? `<path d="M${lx - 5} ${ey + 1}q5-6 10 0M${rx - 5} ${ey + 1}q5-6 10 0" stroke="#2B2B3A" stroke-width="3" fill="none" stroke-linecap="round"/>`
+    : `<g class="bdeyes">${frog ? `<circle cx="${lx}" cy="${ey}" r="8" fill="#fff"/><circle cx="${rx}" cy="${ey}" r="8" fill="#fff"/>` : ''}<circle cx="${lx}" cy="${ey}" r="${drop ? 5.5 : 4.5}" fill="#2B2B3A"/><circle cx="${rx}" cy="${ey}" r="${drop ? 5.5 : 4.5}" fill="#2B2B3A"/><circle cx="${lx + 1.5}" cy="${ey - 1.5}" r="1.5" fill="#fff"/><circle cx="${rx + 1.5}" cy="${ey - 1.5}" r="1.5" fill="#fff"/></g>`;
+  const muzzle = frog ? '' : `<ellipse cx="60" cy="64" rx="13" ry="9" fill="${belly}"/><ellipse cx="60" cy="60" rx="4.5" ry="3.2" fill="#3A2A2A"/>`;
+  const mouth = drop ? `<ellipse cx="60" cy="${frog ? 50 : 68}" rx="3.5" ry="4.5" fill="#3A2A2A"/>` : `<path d="M54 ${frog ? 48 : 66}q6 6 12 0" stroke="#3A2A2A" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+  const whisk = kind === 'Otter' || kind === 'Cat' ? '<path d="M40 64l-12-2M40 68l-12 2M80 64l12-2M80 68l12 2" stroke="#3A2A2A" stroke-width="1.3" opacity=".55"/>' : '';
+  const cheeks = `<circle cx="${frog ? 34 : 39}" cy="${frog ? 42 : 66}" r="5" fill="#F48FA8" opacity=".45"/><circle cx="${frog ? 86 : 81}" cy="${frog ? 42 : 66}" r="5" fill="#F48FA8" opacity=".45"/>`;
+  const p = Math.max(0, Math.min(1, prog || 0)), knit = `<rect x="51" y="92" width="18" height="${4 + Math.round(16 * p)}" rx="2" fill="#4C6FE0"/>` + Array.from({ length: Math.round(4 * p) }, (_, i) => `<path d="M51 ${96 + i * 4}h18" stroke="#FFC53D" stroke-width="1.6"/>`).join('');
+  const arms = drop ? `<ellipse cx="28" cy="80" rx="7" ry="11" fill="${c}"/><ellipse cx="92" cy="80" rx="7" ry="11" fill="${c}"/><path d="M8 116l26-6M86 118l26-8" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/><circle cx="110" cy="110" r="8" fill="#E0524C"/>`
+    : happy ? `<ellipse cx="22" cy="58" rx="7" ry="12" fill="${c}" transform="rotate(-30 22 58)"/><ellipse cx="98" cy="58" rx="7" ry="12" fill="${c}" transform="rotate(30 98 58)"/>`
+    : state === 'work' ? `${knit}<g class="bdneedles"><path d="M40 80l30 12M80 80l-30 12" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/></g><ellipse class="bdarm l" cx="46" cy="90" rx="8" ry="7" fill="${c}"/><ellipse class="bdarm r" cx="74" cy="90" rx="8" ry="7" fill="${c}"/><path d="M60 112q20 4 40-4" stroke="#E0524C" stroke-width="1.5" fill="none"/><circle cx="102" cy="106" r="8" fill="#E0524C"/><path d="M96 102q6 4 12 0M97 108q5 3 10 0" stroke="#B93A35" stroke-width="1.2" fill="none"/>`
+    : `<ellipse cx="26" cy="82" rx="7" ry="11" fill="${c}"/><ellipse cx="94" cy="82" rx="7" ry="11" fill="${c}"/>`;
+  if (kind === 'Pip') { const pw = w, pput = slot => { const it = BD_ITEMS[pw[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, 45).replace(/\{rx\}/g, 75).replace(/\{ey\}/g, 54).replace(/\{lx0\}/g, 36).replace(/\{rx0\}/g, 66).replace(/\{ey0\}/g, 48).replace(/\{bl\}/g, 53).replace(/\{bw\}/g, 14); }; return pipSvg(pw, state, prog, cls, pput); }
+  const put = slot => { const it = BD_ITEMS[w[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, lx).replace(/\{rx\}/g, rx).replace(/\{ey\}/g, ey).replace(/\{lx0\}/g, lx - 9).replace(/\{rx0\}/g, rx - 9).replace(/\{ey0\}/g, ey - 6).replace(/\{bl\}/g, lx + 8).replace(/\{bw\}/g, rx - lx - 16); };
+  return `<svg class="bdsvg ${cls || ''} bd-${state || 'idle'}" viewBox="0 -10 120 132" role="img" aria-label="${esc(kind)}">${ears}${body}${frog ? '' : muzzle}${whisk}${cheeks}${eyes}${frog ? '' : ''}${mouth}${put('neck')}${arms}${put('face')}${put('head')}</svg>`;
+}
+/* ── the page ── */
+const $ = id => document.getElementById(id);
+let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
+const HOME = /^https:\/\/[a-z0-9-]+\.script\.googleusercontent\.com$/.test(String(D.o || '')) ? D.o : '';
+const KIND = BD_LOOK[D.kind] || D.kind === 'Pip' ? D.kind : 'Pip';
+const FRIENDS = [['Bunny', { head: 'flowers' }], ['Fox', {}], ['Frog', { head: 'party' }], ['Bear', { neck: 'scarf' }], ['Cat', { head: 'bow' }], ['Otter', { face: 'glasses' }], ['Bunny', { neck: 'bowtie' }], ['Frog', { head: 'crown' }]].filter(f => f[0] !== KIND).concat([['Otter', { head: 'cap' }]]).slice(0, 8);
+const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5]];
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
+let thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
+$('cls').textContent = D.cls && D.cls !== '*' ? D.cls : D.cls === '*' ? 'All classes' : 'Class sidekick'; $('thrin').value = thr; $('every').value = String(every);
+function bush(x, y, s) { return `<g transform="translate(${x} ${y}) scale(${s})"><ellipse cx="-70" cy="20" rx="70" ry="50" fill="#4F9D4A"/><ellipse cx="60" cy="18" rx="74" ry="52" fill="#58A852"/><ellipse cx="-5" cy="-10" rx="80" ry="62" fill="#63B65C"/><ellipse cx="20" cy="40" rx="120" ry="38" fill="#4F9D4A"/><circle cx="-30" cy="-30" r="8" fill="#F7A8C8"/><circle cx="40" cy="-14" r="7" fill="#FFE07A"/></g>`; }
+function paintScene() {
+  const sky = `<defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ED8F0"/><stop offset="1" stop-color="#DDF3FA"/></linearGradient></defs><rect width="1600" height="900" fill="url(#sk)"/><circle cx="1380" cy="130" r="70" fill="#FFE27A"/><g fill="#fff" opacity=".9"><ellipse cx="300" cy="140" rx="90" ry="30"/><ellipse cx="360" cy="120" rx="60" ry="32"/><ellipse cx="980" cy="90" rx="80" ry="26"/></g>
+    <path d="M0 520Q300 400 620 480T1200 450T1600 500V900H0z" fill="#A9D98A"/><path d="M0 600Q400 520 800 580T1600 560V900H0z" fill="#8FCB70"/><ellipse cx="800" cy="800" rx="900" ry="140" fill="#7DBE5E"/>`;
+  const friends = SPOTS.map((p, i) => { const f = FRIENDS[i]; return `<g transform="translate(${p[0] - 60 * p[2] * 1.4} ${p[1] - 188 * p[2]}) scale(${p[2] * 1.4})"><g class="ani" id="a${i}">${buddySvg(f[0], f[1], 'idle').replace('<svg ', '<svg width="120" height="132" ')}</g></g>${bush(p[0], p[1], p[2])}`; }).join('');
+  $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g>`;
+  paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
+}
+function paintPip() { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60).replace('<svg ', '<svg width="120" height="132" '); }
+function setMood(m, ms) { mood = m; moodT = ms ? Date.now() + ms : 0; paintPip(); }
+let msgT = 0; function say(t, ms) { const m = $('msg'); m.textContent = t; m.classList.add('in'); clearTimeout(msgT); msgT = setTimeout(() => m.classList.remove('in'), ms || 3500); }
+function show() { $('mins').textContent = Math.floor(calm / 60); $('out').textContent = outN + ' of ' + FRIENDS.length + ' out'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
+/* the room's volume, 0 to 100, from the microphone (no recording: only the loudness of each moment is measured) */
+async function micOn() {
+  stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  const ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(), buf = new Float32Array(1024); an.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(an); $('mic').textContent = (stream.getAudioTracks()[0] || {}).label || '';
+  let last = performance.now();
+  const tick = now => { an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+    const db = 20 * Math.log10(Math.sqrt(s / buf.length) + 1e-9), raw = Math.max(0, Math.min(100, (db + 62) / 52 * 100)), dt = (now - last) / 1000; last = now;
+    lvl += (raw - lvl) * (raw > lvl ? .25 : .06);
+    $('fill').style.width = lvl + '%'; $('mask').style.width = (100 - lvl) + '%';
+    if (running && lvl > thr) { loudFor += dt; if (loudFor > 1 && Date.now() - lastHide > 4000) tooLoud(); } else loudFor = Math.max(0, loudFor - dt * 2);
+    requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+function tooLoud() { lastHide = Date.now(); streak = 0; $('meterbox').classList.remove('loud'); void $('meterbox').offsetWidth; $('meterbox').classList.add('loud'); setMood('drop', 2500);
+  if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! ' + FRIENDS[outN][0] + ' hid.'); } else say('Too loud! Shh…'); show(); }
+setInterval(() => {
+  if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle');
+  if (!running) return;
+  if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
+  if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say(FRIENDS[outN][0] + ' came out to say hi!'); outN++; streak = 0; setMood('happy', 2600);
+    if (outN === FRIENDS.length) setTimeout(() => { say('Everyone came out! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
+  if (++beat % 10 === 0) report(false).then(r => { const p = r && r.live, el = $('ontask'); if (!el) return; el.classList.toggle('hidden', !p); if (p) { $('pct').textContent = p.pct + '%'; $('pctn').textContent = p.on + ' of ' + p.total + ' students'; } });
+  show();
+}, 1000);
+/* calm seconds go back to Study Hall (the tab that opened this page), which gives the rewards when quiet time ends */
+let rid = 0, beat = 0; const waits = {};
+function report(fin) { if (!HOME || !window.opener || !D.id) return Promise.resolve(null); const r = ++rid;
+  try { window.opener.postMessage({ type: 'class-quiet', id: D.id, secs: calm, fin: !!fin, rid: r }, HOME); } catch (e) { return Promise.resolve(null); }
+  return new Promise(ok => { waits[r] = ok; setTimeout(() => { if (waits[r]) { delete waits[r]; ok(null); } }, fin ? 45000 : 15000); }); }
+addEventListener('message', e => { if (e.origin !== HOME || !e.data || e.data.type !== 'class-quiet-ok') return; const w = waits[e.data.rid]; if (w) { delete waits[e.data.rid]; w(e.data); } });
+$('go').onclick = async () => { $('err').textContent = ''; try { await micOn(); } catch (e) { $('err').textContent = 'The microphone is blocked (' + e.name + '). Click the lock or microphone icon in the address bar, choose Allow, then reload.'; return; }
+  $('start').classList.add('hidden'); running = true; setMood('work'); say('Shh… let’s see who comes out!'); show(); };
+$('pause').onclick = () => { running = !running; setMood(running ? 'work' : 'idle'); show(); };
+$('full').onclick = () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) {} };
+$('thrin').oninput = e => { thr = +e.target.value; store('cs-thr', thr); $('thr').style.left = thr + '%'; };
+$('every').onchange = e => { every = +e.target.value; store('cs-every', every); show(); };
+$('end').onclick = async () => { running = false; setMood('happy'); show(); $('end').disabled = true; say('Sending ' + Math.floor(calm / 60) + ' calm minutes to Study Hall…', 60000);
+  const r = await report(true); $('end').disabled = false;
+  if (r) { say(r.msg || 'Done!', 15000); $('end').textContent = 'Close'; $('end').onclick = () => window.close(); }
+  else say(HOME && window.opener ? 'Study Hall did not answer. Keep its tab open, or click End quiet time on the Study Sidekick page there.' : 'Open this page from Study Sidekick in Study Hall to give rewards. ' + Math.floor(calm / 60) + ' calm minutes.', 15000); };
+addEventListener('beforeunload', e => { if (running && calm > 30) { report(false); e.preventDefault(); e.returnValue = ''; } });
+$('thr').style.left = thr + '%'; paintScene(); show();
+</script>
+</body>
+</html>
