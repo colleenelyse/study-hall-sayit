@@ -131,10 +131,13 @@ const pipAnimations = {
   /* priority 3: the default loop, playing whenever nothing else does. The idle sheet is an even 8 x 4 grid of 32 front-facing frames that
      change a little at a time (breathing and a blink, looking left, looking right and up, a smile, settling back to the first pose), so it
      plays in order: about 0.38 s a frame, the blink (frame 5) quick, about 11.6 s in all. */
-  idle: { src: 'animations/pip_anim_idle.webp', cols: 8, rows: 4, frameCount: 32, loop: true, priority: 3, anchor: 'feet', tweenMs: 140,
+  idle: { src: 'animations/pip_anim_idle.webp', cols: 8, rows: 4, frameCount: 32, loop: true, priority: 3, anchor: 'feet', tweenMs: 70,
     sequence: Array.from({ length: 32 }, (_, i) => [i, i === 5 ? 120 : i === 4 || i === 6 ? 240 : 380]) },
   /* priority 1: special moments. They pause the idle loop, play once, and the loop comes back. */
-  dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' }
+  dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, priority: 1, anchor: 'feet', tween: .3, motion: 'bounce' },
+  /* a backflip: crouch, jump (lift: from step 2 to step 8, up to 12% of the box), flip, land, wave. inset: his arms touch the cell edges, so 8px are trimmed off each cell */
+  backflip: { src: 'animations/pip_anim_backflip.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, inset: 8, lift: [2, 8, .12],
+    sequence: [[0, 220], [1, 200], [2, 120], [3, 95], [4, 95], [5, 95], [6, 95], [7, 95], [8, 130], [9, 200], [10, 200], [11, 380]] }
   /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
      between two poses, so long ones show a double face: real smoothness needs more frames.
@@ -151,7 +154,7 @@ function pipLoad(src, a) {
   e.p = new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async';
     im.onload = () => { e.img = im; e.ok = true;
       try { if (lay === 'figures') { e.cells = pipFigures(im); e.boxes = e.cells.map(c => ({ l: 0, t: 0, r: c[2], b: c[3] })); }
-            else { const cols = a ? a.cols : 1, rows = a ? a.rows : 1, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows; e.cells = []; for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) e.cells.push([q * cw, r * ch, cw, ch]); e.boxes = pipMeasure(im, e.cells); } }
+            else { const cols = a ? a.cols : 1, rows = a ? a.rows : 1, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, n = (a && a.inset) || 0; e.cells = []; for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) e.cells.push([q * cw + n, r * ch + n, cw - 2 * n, ch - 2 * n]); e.boxes = pipMeasure(im, e.cells); } }
       catch (er) { if (!e.cells) e.cells = [[0, 0, im.naturalWidth, im.naturalHeight]]; e.boxes = null; }
       ok(e); };
     im.onerror = () => { e.ok = false; console.warn('Pip: could not load ' + src); ok(e); };
@@ -246,7 +249,10 @@ class PipAnimationPlayer {
       let s = 0, acc = 0; while (s < steps.length - 1 && acc + steps[s].ms <= el) acc += steps[s++].ms;
       const st = steps[s], ph = (el - acc) / st.ms, nx = s + 1 < steps.length ? steps[s + 1] : a.loop ? steps[0] : null;
       const win = a.tweenMs != null ? Math.min(st.ms * .6, a.tweenMs) : st.ms * (a.tween == null ? .3 : a.tween), f = nx && win > 0 ? Math.max(0, ((el - acc) - (st.ms - win)) / win) : 0;
-      this.draw(e, st.f, a.anchor, f > 0 ? { e, i: nx.f, anchor: a.anchor } : null, f, a.motion === 'bounce' ? pipBounce(ph, s, el / total) : null);
+      let mo = a.motion === 'bounce' ? pipBounce(ph, s, el / total) : null;
+      if (a.lift) { const L = a.lift, s0 = steps.slice(0, L[0]).reduce((q, x) => q + x.ms, 0), s1 = steps.slice(0, L[1] + 1).reduce((q, x) => q + x.ms, 0), p = (el - s0) / (s1 - s0);      /* a jump: up and down in an arc */
+        if (p > 0 && p < 1) { mo = mo || { dy: 0, sx: 1, sy: 1, rot: 0 }; mo.dy -= L[2] * Math.sin(Math.PI * p); } }
+      this.draw(e, st.f, a.anchor, f > 0 ? { e, i: nx.f, anchor: a.anchor } : null, f, mo);
       this.raf = requestAnimationFrame(tick); };
     this.raf = requestAnimationFrame(tick);
   }
@@ -282,7 +288,7 @@ function bush(x, y, s) { return `<g transform="translate(${x} ${y}) scale(${s})"
 function paintScene() {
   const sky = `<defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ED8F0"/><stop offset="1" stop-color="#DDF3FA"/></linearGradient></defs><rect width="1600" height="900" fill="url(#sk)"/><circle cx="1380" cy="130" r="70" fill="#FFE27A"/><g fill="#fff" opacity=".9"><ellipse cx="300" cy="140" rx="90" ry="30"/><ellipse cx="360" cy="120" rx="60" ry="32"/><ellipse cx="980" cy="90" rx="80" ry="26"/></g>
     <path d="M0 520Q300 400 620 480T1200 450T1600 500V900H0z" fill="#A9D98A"/><path d="M0 600Q400 520 800 580T1600 560V900H0z" fill="#8FCB70"/><ellipse cx="800" cy="800" rx="900" ry="140" fill="#7DBE5E"/>`;
-  const friends = SPOTS.map((p, i) => { const f = FRIENDS[i]; return `<g transform="translate(${p[0] - 60 * p[2] * 1.4} ${p[1] - 188 * p[2]}) scale(${p[2] * 1.4})"><g class="ani" id="a${i}">${buddySvg(f[0], f[1], 'idle').replace('<svg ', '<svg width="120" height="132" ')}</g></g>${bush(p[0], p[1], p[2])}`; }).join('');
+  const friends = SPOTS.map((p, i) => [p, i]).sort((u, v) => u[0][1] - v[0][1]).map(([p, i]) => { const f = FRIENDS[i];      /* back to front: a friend lower on the hill stands in front of the bushes behind it */ return `<g transform="translate(${p[0] - 60 * p[2] * 1.4} ${p[1] - 188 * p[2]}) scale(${p[2] * 1.4})"><g class="ani" id="a${i}">${buddySvg(f[0], f[1], 'idle').replace('<svg ', '<svg width="120" height="132" ')}</g></g>${bush(p[0], p[1], p[2])}`; }).join('');
   $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="575" y="300" width="450" height="400"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
 }
@@ -293,7 +299,14 @@ const FRIEND_TINT = { pink: [95, 1.1, 1.05], mint: [-95, 1, 1.08], sun: [175, 1.
 let FART = null; const faceT = {};
 function friendArtCut(e, i, tint) {
   const [sx, sy, cw, ch] = e.cells[i], b = (e.boxes && e.boxes[i]) || { l: 0, t: 0, r: cw, b: ch }, w = b.r - b.l, hh = b.b - b.t, H = 300, W = Math.round(H * w / hh), c = document.createElement('canvas');
-  c.width = W; c.height = H; const x = c.getContext('2d'); x.filter = 'hue-rotate(' + tint[0] + 'deg) saturate(' + tint[1] + ') brightness(' + tint[2] + ')'; x.drawImage(e.img, sx + b.l, sy + b.t, w, hh, 0, 0, W, H);
+  c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(e.img, sx + b.l, sy + b.t, w, hh, 0, 0, W, H);
+  /* tint only his blue body: the mouth, eyes and cheeks keep their own colours (a tinted red mouth would turn green) */
+  const t = document.createElement('canvas'); t.width = W; t.height = H; const y = t.getContext('2d', { willReadFrequently: true });
+  y.filter = 'hue-rotate(' + tint[0] + 'deg) saturate(' + tint[1] + ') brightness(' + tint[2] + ')'; y.drawImage(c, 0, 0);
+  const A = x.getImageData(0, 0, W, H), B = y.getImageData(0, 0, W, H).data, d = A.data;
+  for (let p = 0; p < d.length; p += 4) { const r = d[p], g = d[p + 1], bl = d[p + 2], mx = Math.max(r, g, bl), mn = Math.min(r, g, bl);
+    if (mx - mn > 25 && bl === mx && bl - r > 20) { d[p] = B[p]; d[p + 1] = B[p + 1]; d[p + 2] = B[p + 2]; } }      /* bluish = body */
+  x.putImageData(A, 0, 0);
   return { url: c.toDataURL('image/png'), ar: W / H };
 }
 async function friendArtLoad() {
@@ -314,7 +327,7 @@ function pipStart() { const c = $('pipc'); if (!c) return; PIPP = new PipAnimati
 function paintPip() {
   if (pipReal) {
     const w = $('pipwrap'); if (w) { w.classList.toggle('startle', mood === 'drop'); }
-    if (mood === 'happy') PIPP.play('dance');
+    if (mood === 'happy' && !PIPP.playing) PIPP.play(Math.random() < .5 ? 'dance' : 'backflip');      /* a celebration for each new friend */
   } else { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, 0).replace('<svg ', '<svg width="120" height="132" '); }
   if (MINI) { const p = MINI.document.getElementById('ppip'); if (p) { if (pipReal) { if (!p.querySelector('img')) p.innerHTML = '<img src="pip/pip_idle.webp" alt="Pip" style="width:100%;height:100%;object-fit:contain">'; p.classList.toggle('startle', mood === 'drop'); } else p.innerHTML = buddySvg(KIND, {}, mood, 0); } }
 }
