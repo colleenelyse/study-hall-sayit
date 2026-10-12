@@ -85,16 +85,18 @@ function start() {
     'service-not-allowed': 'This browser is not allowed to listen. Use Chrome, or check the microphone settings.', 'language-not-supported': 'This browser cannot listen in this language.' };
   async function listen(w, attempt) {
     const mic = $('mic'), hint = $('hint'); attempt = attempt || 0;
-    if (running) { if (attempt) return; try { window.REC.abort(); } catch (e) {} return; }      /* a second tap while listening stops it */
+    if (running) { if (attempt) return; window.USER_STOP = true; try { window.REC.stop(); } catch (e) {} $('hint').textContent = 'Checking…'; return; }      /* a second tap means "I am done": stop() keeps what was said (abort() would throw it away) */
+    window.USER_STOP = false;
     if (!(await micReady())) return;
     const r = window.REC || (window.REC = new SR()), trail = []; let got = false, err = '';
     r.lang = LOCALE[w[2]] || w[2] || 'en-US'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
-    r.onstart = () => { running = true; trail.push('start'); mic.classList.add('on'); hint.textContent = 'Listening… say it now.'; };
+    r.onstart = () => { running = true; trail.push('start'); mic.classList.add('on'); hint.textContent = 'Listening… say it now. Tap again when you are done, or just wait.'; };
     r.onaudiostart = () => trail.push('audio'); r.onspeechstart = () => trail.push('speech');
     r.onresult = e => { got = true; trail.push('result'); show(w, [...e.results[0]].map(a => a.transcript)); };
     r.onerror = e => { err = e.error; trail.push('error ' + e.error); };
     r.onend = () => { running = false; trail.push('end'); mic.classList.remove('on'); if (got) return;
       /* cut off before any speech (headphones switching to their microphone, or another tab listening): try again by itself, up to twice */
+      if (window.USER_STOP) { hint.textContent = 'I did not catch that. Tap the microphone, say the word, then wait a moment (or tap again when you are done).'; return; }
       if (err === 'aborted' && attempt < 2 && trail.indexOf('speech') < 0) { hint.textContent = 'One moment… listening again.'; setTimeout(() => listen(w, attempt + 1), 500 + attempt * 400); return; }
       hint.innerHTML = esc(WHY[err] || (err ? 'Something went wrong (' + err + '). Tap and try again.' : trail.indexOf('audio') < 0 ? 'The microphone did not start. Check your computer’s sound input (on a Mac: System Settings > Sound > Input), then tap and try again.' : 'I did not hear anything. Tap and try again.'))
         + '<br><small style="opacity:.7">Details: ' + esc(trail.join(', ')) + ' · try ' + (attempt + 1) + ' · ' + esc(r.lang) + ' · ' + esc(/Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Safari\//.test(navigator.userAgent) ? 'Safari' : 'other browser') + '</small>'; };
