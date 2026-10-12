@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Say It · microphone check</title>
+<style>
+  body { font: 16px/1.5 Arial, sans-serif; margin: 24px; max-width: 680px; color: #1B2238 }
+  h1 { font-size: 1.4rem } button { font: bold 1rem Arial; padding: 12px 18px; border: 0; border-radius: 10px; background: #4C6FE0; color: #fff; cursor: pointer; margin: 4px 6px 4px 0 }
+  pre { background: #F3F4F8; padding: 12px; border-radius: 10px; white-space: pre-wrap; font-size: .9rem } .meter { height: 14px; background: #E4E7EE; border-radius: 99px; overflow: hidden; width: 300px } .meter i { display: block; height: 100%; width: 0; background: #2E9D63 }
+</style>
+</head>
+<body>
+<h1>Say It: microphone check</h1>
+<p>1. Press <b>Check the microphone</b> and talk: the green bar should move.<br>2. Press <b>Listen in English</b> and say “hello”. Then try <b>Listen in Spanish</b> and say “hola”.<br>3. Copy everything in the grey box and send it to Claude.</p>
+<button id="m">Check the microphone</button><button id="en">Listen in English</button><button id="es">Listen in Spanish</button>
+<div class="meter"><i id="lvl"></i></div>
+<pre id="log"></pre>
+<script>
+  /* A plain test of the browser's speech recognition, outside Study Hall, logging every event, to find why listening stops right away. */
+  const log = t => { document.getElementById('log').textContent += t + '\n'; };
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  log('Page: ' + location.href.split('#')[0]);
+  log('Browser: ' + navigator.userAgent);
+  log('Secure: ' + window.isSecureContext + ' · origin: ' + window.origin + ' · opened by another page: ' + !!window.opener + ' · speech recognition: ' + !!SR);
+  try { navigator.permissions.query({ name: 'microphone' }).then(p => log('Microphone permission: ' + p.state)); } catch (e) { log('Permission check failed: ' + e.message); }
+  let rec = null;
+  document.getElementById('m').onclick = async () => {
+    try { const st = await navigator.mediaDevices.getUserMedia({ audio: true }), ctx = new AudioContext(), an = ctx.createAnalyser(), buf = new Uint8Array(256);
+      ctx.createMediaStreamSource(st).connect(an); log('Microphone on: ' + st.getAudioTracks()[0].label);
+      const t0 = Date.now(), tick = () => { an.getByteTimeDomainData(buf); let m = 0; buf.forEach(v => { m = Math.max(m, Math.abs(v - 128)); }); document.getElementById('lvl').style.width = Math.min(100, m * 1.6) + '%'; if (Date.now() - t0 < 6000) requestAnimationFrame(tick); else { st.getTracks().forEach(t => t.stop()); ctx.close(); log('Microphone check done.'); } }; tick();
+    } catch (e) { log('Microphone error: ' + e.name + ' ' + e.message); }
+  };
+  const listen = lang => { if (!SR) return log('No speech recognition in this browser.');
+    const t0 = Date.now(), at = () => ((Date.now() - t0) / 1000).toFixed(1) + 's';
+    rec = new SR(); window.KEEP = rec; rec.lang = lang; rec.interimResults = true; rec.maxAlternatives = 3;
+    ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'end', 'nomatch'].forEach(ev => rec.addEventListener(ev, () => log(at() + ' ' + ev)));
+    rec.onresult = e => log(at() + ' result: ' + [...e.results].map(r => r[0].transcript + (r.isFinal ? ' (final)' : '')).join(' | '));
+    rec.onerror = e => log(at() + ' ERROR: ' + e.error + (e.message ? ' (' + e.message + ')' : ''));
+    log('--- listening in ' + lang + ' ---'); try { rec.start(); } catch (e) { log('start failed: ' + e.name + ' ' + e.message); } };
+  document.getElementById('en').onclick = () => listen('en-US');
+  document.getElementById('es').onclick = () => listen('es-US');
+</script>
+</body>
+</html>
