@@ -163,8 +163,12 @@ const pipAnimations = {
      into 6 x 2 cells of 340 px, feet on one line; its middle row is all in the air with no ground to measure from, so a jump arc (lift, steps 3
      to 8) carries the flip, and rise puts back the little hop on landing */
   flip: { label: 'Flip', test: true, src: 'animations/pip_anim_flip.webp', cols: 6, rows: 2, frameCount: 12, loop: false, priority: 1, anchor: 'feet', tweenMs: 45, lift: [3, 8, .16], rise: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 29, 0],
-    sequence: [[0, 150], [1, 130], [2, 160], [3, 110], [4, 95], [5, 95], [6, 95], [7, 95], [8, 120], [9, 180], [10, 150], [11, 350]] }
-  /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'none' keeps frames exactly as drawn.
+    sequence: [[0, 150], [1, 130], [2, 160], [3, 110], [4, 95], [5, 95], [6, 95], [7, 95], [8, 120], [9, 180], [10, 150], [11, 350]] },
+  /* ILY: he raises his hand and makes the ASL I love you handshape, pink hearts float up, a happy wink, then he lowers his hand. An even 4 x 3 grid as
+     drawn. anchor 'ground': feet on one line, but each frame keeps its place across (the hearts and the hand would otherwise shift him sideways) */
+  ily: { label: 'ILY', test: true, src: 'animations/pip_anim_ily.webp', cols: 4, rows: 3, frameCount: 12, loop: false, priority: 1, anchor: 'ground', tweenMs: 60,
+    sequence: [[0, 200], [1, 150], [2, 150], [3, 200], [4, 200], [5, 200], [6, 320], [7, 200], [8, 200], [9, 200], [10, 150], [11, 300]] }
+  /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot; 'ground': feet on one line, each frame keeps its place across; 'none' keeps frames exactly as drawn.
      tween / tweenMs: each frame dissolves into the next for the last part of its turn (a fraction, or ms). A dissolve cannot move Pip
      between two poses, so long ones show a double face: real smoothness needs more frames.
      motion 'bounce': smooth movement drawn over the frames (a hop on each frame, squash and stretch, a gentle rock). */
@@ -239,7 +243,7 @@ class PipAnimationPlayer {
     let k = Math.min(h * .82 / rH, w * .9 / rW);
     if (e !== R) { const eb = ok(e.boxes), eH = med(eb.map(b => b.b - b.t)), eW = eb.length ? Math.max(...eb.map(b => b.r - b.l)) : 0; if (eH) k = k * rH / eH; if (eW) k = Math.min(k, w * .9 / eW); }
     const bx = e.boxes && e.boxes[i];
-    const dx = bx && anchor !== 'none' ? w / 2 - ((bx.l + bx.r) / 2) * k : (w - cw * k) / 2, dy = (bx && anchor !== 'none' ? h * .96 - bx.b * k : h * .96 - ch * k) - ((e.rise && e.rise[i]) || 0) * k;      /* rise: a frame in the air */
+    const dx = bx && anchor !== 'none' && anchor !== 'ground' ? w / 2 - ((bx.l + bx.r) / 2) * k : (w - cw * k) / 2, dy = (bx && anchor !== 'none' ? h * .96 - bx.b * k : h * .96 - ch * k) - ((e.rise && e.rise[i]) || 0) * k;      /* rise: a frame in the air */
     return [e.img, sx, sy, cw, ch, dx, dy, cw * k, ch * k];
   }
   /* draw frame i of e; with B ({ e, i, anchor }) and f (0 to 1), dissolve into B: the first half fades B in over A, the second fades A out
