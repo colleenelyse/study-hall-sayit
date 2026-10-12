@@ -30,6 +30,10 @@
   #msg.in { opacity: 1; transform: translateX(-50%) scale(1) }
   #start { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(191, 230, 245, .7) } #start .card { background: #fff; border-radius: 24px; padding: 28px; max-width: 520px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .18) }
   #start h1 { font: 700 2rem Fraunces, Georgia, serif; margin: 0 0 8px } #start p { margin: 0 0 16px; color: #4A5270 }
+  .pipwrap { width: 100%; height: 100%; transform-origin: 50% 96%; animation: pipbob 3.2s ease-in-out infinite } #pipc { width: 100%; height: 100%; display: block }
+  @keyframes pipbob { 0%, 100% { transform: translateY(0) rotate(0) scale(1, 1) } 25% { transform: translateY(-1.8%) rotate(-1.6deg) scale(.99, 1.01) } 50% { transform: translateY(0) rotate(0) scale(1.01, .99) } 75% { transform: translateY(-1.2%) rotate(1.6deg) scale(.99, 1.01) } }
+  .pipwrap.startle, #ppip.startle { animation: pipstartle .55s ease 2 } @keyframes pipstartle { 15% { transform: translateY(-8%) scale(.95, 1.06) } 35% { transform: translateY(0) scale(1.06, .94) translateX(-3%) } 55% { transform: translateX(3%) } 75% { transform: translateX(-2%) } }
+  @media (prefers-reduced-motion: reduce) { .pipwrap, .pipwrap.startle { animation: none } }
   .ring { width: 54px; height: 54px } .hidden { display: none !important }
   .bdsvg { overflow: visible } .bd-work { animation: bdsway 2.6s ease-in-out infinite; transform-origin: 60px 112px } @keyframes bdsway { 25% { transform: rotate(-3deg) } 75% { transform: rotate(3deg) } }
   .bdeyes { animation: bdblink 4.5s infinite; transform-origin: 60px 52px } @keyframes bdblink { 0%, 95%, 100% { transform: scaleY(1) } 97% { transform: scaleY(.1) } }
@@ -120,6 +124,119 @@ function buddySvg(kind, wear, state, prog, cls) {
   const put = slot => { const it = BD_ITEMS[w[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, lx).replace(/\{rx\}/g, rx).replace(/\{ey\}/g, ey).replace(/\{lx0\}/g, lx - 9).replace(/\{rx0\}/g, rx - 9).replace(/\{ey0\}/g, ey - 6).replace(/\{bl\}/g, lx + 8).replace(/\{bw\}/g, rx - lx - 16); };
   return `<svg class="bdsvg ${cls || ''} bd-${state || 'idle'}" viewBox="0 -10 120 132" role="img" aria-label="${esc(kind)}">${ears}${body}${frog ? '' : muzzle}${whisk}${cheeks}${eyes}${frog ? '' : ''}${mouth}${put('neck')}${arms}${put('face')}${put('head')}</svg>`;
 }
+/* Pip the Sprite's player, copied from Study Hall (Index.html); his files are in pip/ beside this page */
+const S = { set: { pipArt: 'pip/' } };
+const pipAnimations = {
+  dance: { src: 'animations/pip_anim_dance.webp', cols: 4, rows: 3, frameCount: 12, durationMs: 2000, loop: false, anchor: 'feet', tween: .3, motion: 'bounce' }
+  /* anchor 'feet': each frame is measured and drawn with Pip's feet on the same spot (the dance sheet's rows sit at different heights);
+     use anchor: 'none' for an animation whose jumps are drawn into the frames on purpose.
+     tween: the part of each frame's turn spent dissolving into the next (0 = none, 0.3 = the default, about 1/20 s at 6 frames a second).
+     motion 'bounce': smooth movement drawn over the frames at full screen speed (a hop on each frame, a squash on landing, a stretch in the air and a
+     gentle rock), so a sheet with few frames feels fluid; leave it out to show the frames exactly as drawn. A dissolve cannot move Pip between two poses, so long ones show a double face: real smoothness needs more frames in the sheet (24 a second is ideal) */
+};
+const PIP_IDLE = 'pip_idle.webp';
+const pipBase = () => { const b = (S.set && S.set.pipArt) || ''; return b && !/\/$/.test(b) ? b + '/' : b; };
+const pipReducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+/* one image, loaded once and shared: { img, ok, boxes } (boxes: Pip's outline in each cell, measured from the transparency) */
+const PIP_IMG = {};
+function pipLoad(src, cols, rows) {
+  const key = src + '|' + cols + 'x' + rows; if (PIP_IMG[key]) return PIP_IMG[key].p;
+  const e = PIP_IMG[key] = { ok: false, boxes: null };
+  e.p = new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async';
+    im.onload = () => { e.img = im; e.ok = true; try { e.boxes = pipMeasure(im, cols, rows); } catch (er) { e.boxes = null; } ok(e); };
+    im.onerror = () => { e.ok = false; console.warn('Pip: could not load ' + src); ok(e); };
+    im.src = src; });
+  return e.p;
+}
+/* Pip's outline in each cell: left, top, right, bottom and centre, from pixels that are not see-through (on a small copy, so it is quick) */
+function pipMeasure(im, cols, rows) {
+  const cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, k = Math.min(1, 160 / cw), w = Math.max(1, Math.round(cw * k)), h = Math.max(1, Math.round(ch * k)), c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true }), out = [];
+  c.width = w; c.height = h;
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+    x.clearRect(0, 0, w, h); x.drawImage(im, q * cw, r * ch, cw, ch, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h).data; let l = w, t = h, rr = -1, b = -1;
+    for (let y = 0; y < h; y++) for (let z = 0; z < w; z++) if (d[(y * w + z) * 4 + 3] > 40) { if (z < l) l = z; if (z > rr) rr = z; if (y < t) t = y; if (y > b) b = y; }
+    out.push(rr < 0 ? null : { l: l / k, t: t / k, r: (rr + 1) / k, b: (b + 1) / k });
+  }
+  return out;
+}
+/* bounce motion for one moment: ph = how far through this frame (0 to 1), i = which frame, t = how far through the whole animation.
+   Each frame is one hop: squashed as it lands and takes off, stretched at the top; the body rocks left and right on alternate hops;
+   everything eases in at the start and out at the end, so it begins and ends exactly on the resting pose. */
+function pipBounce(ph, i, t) {
+  const env = Math.min(1, t * 6, (1 - t) * 6), up = Math.sin(Math.PI * ph), land = Math.cos(Math.PI * 2 * ph);
+  return { dy: -.045 * up * env, sx: 1 + .045 * Math.max(0, land) * env - .02 * up * env, sy: 1 - .05 * Math.max(0, land) * env + .03 * up * env, rot: (i % 2 ? 1 : -1) * .05 * Math.sin(Math.PI * ph) * env };
+}
+class PipAnimationPlayer {
+  /* canvas: where Pip is drawn (it keeps Pip's proportions, sharp on any screen); opts.label for screen readers */
+  constructor(canvas, opts) {
+    this.c = canvas; this.x = canvas.getContext('2d'); this.base = (opts && opts.base) || pipBase(); this.raf = 0; this.playing = null; this.idle = null; this.ref = null;
+    canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', (opts && opts.label) || 'Pip the Sprite');
+    this.ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => this.redraw()) : null; if (this.ro) this.ro.observe(canvas);
+    this.ready = this.load();
+  }
+  async load() {
+    this.idle = await pipLoad(this.base + PIP_IDLE, 1, 1);
+    const d = pipAnimations.dance; if (d) this.ref = await pipLoad(this.base + d.src, d.cols, d.rows);      /* the dance sets Pip's size, so the resting pose matches it */
+    this.showIdle();
+    Object.keys(pipAnimations).forEach(k => { const a = pipAnimations[k]; pipLoad(this.base + a.src, a.cols, a.rows); });      /* preload the rest */
+  }
+  size() { const r = this.c.getBoundingClientRect(), dpr = Math.min(3, window.devicePixelRatio || 1), w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr)); if (this.c.width !== w || this.c.height !== h) { this.c.width = w; this.c.height = h; } return { w, h }; }
+  /* where one cell of a sheet goes, so Pip's body is the same height on screen for every image and his feet rest on the same line */
+  place(e, cols, rows, i, anchor, w, h) {
+    const im = e.img, cw = im.naturalWidth / cols, ch = im.naturalHeight / rows, sx = (i % cols) * cw, sy = Math.floor(i / cols) * ch;
+    const ok = bs => bs ? bs.filter(Boolean) : [], med = a => a.length ? a.slice().sort((p, q) => p - q)[a.length >> 1] : 0;
+    /* one size for Pip's body everywhere (the dance sets it); it fits the box both ways, with room for a hop and a stretch */
+    const R = this.ref && this.ref.ok ? this.ref : e, rb = ok(R.boxes), rH = med(rb.map(b => b.b - b.t)) || R.img.naturalHeight * .8 / (R === this.ref ? 3 : 1), rW = rb.length ? Math.max(...rb.map(b => b.r - b.l)) : rH;
+    let k = Math.min(h * .82 / rH, w * .9 / rW);
+    if (e !== R) { const eb = ok(e.boxes), eH = med(eb.map(b => b.b - b.t)), eW = eb.length ? Math.max(...eb.map(b => b.r - b.l)) : 0; if (eH) k = k * rH / eH; if (eW) k = Math.min(k, w * .9 / eW); }      /* another image (the resting pose): the same body height, and still inside the box */
+    const bx = e.boxes && e.boxes[i];
+    const dx = bx && anchor !== 'none' ? w / 2 - ((bx.l + bx.r) / 2) * k : (w - cw * k) / 2, dy = bx && anchor !== 'none' ? h * .96 - bx.b * k : h * .96 - ch * k;
+    return [im, sx, sy, cw, ch, dx, dy, cw * k, ch * k];
+  }
+  /* draw a frame; with b and f (0 to 1), dissolve into frame b: the first half fades b in over a, the second half fades a out over b,
+     so Pip never turns see-through midway (the in-between frames that smooth a sheet with few drawings) */
+  draw(e, cols, rows, i, anchor, b, f, mo) {
+    const { w, h } = this.size(), x = this.x; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, w, h); if (!e || !e.ok) return;
+    x.imageSmoothingQuality = 'high'; x.globalAlpha = 1;
+    if (mo) { const fx = w / 2, fy = h * .97; x.translate(fx, fy + mo.dy * h); x.rotate(mo.rot); x.scale(mo.sx, mo.sy); x.translate(-fx, -fy); }      /* the motion pivots on Pip's feet */
+    if (!b || !(f > 0)) { x.drawImage(...this.place(e, cols, rows, i, anchor, w, h)); x.setTransform(1, 0, 0, 1, 0, 0); return; }
+    const A = this.place(e, cols, rows, i, anchor, w, h), B = this.place(b.e, b.cols, b.rows, b.i, b.anchor, w, h), ease = f * f * (3 - 2 * f);
+    if (ease < .5) { x.drawImage(...A); x.globalAlpha = ease * 2; x.drawImage(...B); }
+    else { x.drawImage(...B); x.globalAlpha = (1 - ease) * 2; x.drawImage(...A); }
+    x.globalAlpha = 1; x.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  showIdle() { cancelAnimationFrame(this.raf); this.raf = 0; this.playing = null; this.draw(this.idle, 1, 1, 0, 'feet'); }
+  redraw() { if (!this.playing) this.showIdle(); }
+  stop() { if (this.playing) { const p = this.playing; this.showIdle(); p.done(false); } }
+  /* play an animation from pipAnimations: resolves true when it finishes, false if stopped or missing. A second play while one runs is ignored.
+     opts.user: started by a click (it plays even when the device asks for reduced motion; automatic ones do not) */
+  async play(name, opts) {
+    const a = pipAnimations[name]; if (!a) { console.warn('Pip: no animation called ' + name); return false; }
+    if (this.playing) return this.playing.promise;                                       /* busy at once, before anything loads: no two at a time */
+    if (pipReducedMotion() && !(opts && opts.user)) return false;
+    let done; const promise = new Promise(ok => { done = ok; }), me = this.playing = { promise, done };
+    await this.ready;
+    const e = await pipLoad(this.base + a.src, a.cols, a.rows);
+    if (this.playing !== me) return promise;                                             /* stopped while loading */
+    if (!e.ok) { this.playing = null; done(false); return promise; }
+    const n = Math.min(a.frameCount || a.cols * a.rows, a.cols * a.rows), dur = Math.max(100, a.durationMs || 1000), tw = a.tween == null ? .3 : Math.max(0, Math.min(1, a.tween)), out = a.loop ? 0 : 140; let t0 = null;
+    const cell = j => ({ e, cols: a.cols, rows: a.rows, i: j, anchor: a.anchor }), rest = { e: this.idle, cols: 1, rows: 1, i: 0, anchor: 'feet' };
+    const tick = now => {
+      if (t0 === null) t0 = now;                                                          /* the clock starts with the first frame drawn */
+      const el = now - t0;
+      if (!a.loop && el >= dur + out) { this.showIdle(); done(true); return; }
+      if (!a.loop && el >= dur) { const g = (el - dur) / out; this.draw(e, a.cols, a.rows, n - 1, a.anchor, this.idle && this.idle.ok ? rest : null, g, a.motion === 'bounce' ? { dy: 0, sx: 1 + .03 * (1 - g), sy: 1 - .03 * (1 - g), rot: 0 } : null); this.raf = requestAnimationFrame(tick); return; }      /* the last frame dissolves back into the resting pose */
+      const pos = ((el % dur) / dur) * n, i = Math.min(n - 1, Math.floor(pos)), ph = pos - i, nx = i + 1 < n ? i + 1 : a.loop ? 0 : -1;
+      const f = tw && nx >= 0 ? Math.max(0, (ph - (1 - tw)) / tw) : 0;                     /* the frame for the time passed, dissolving into the next for the last part of its turn */
+      this.draw(e, a.cols, a.rows, i, a.anchor, f > 0 ? cell(nx) : null, f, a.motion === 'bounce' ? pipBounce(ph, i, el / dur) : null);
+      this.raf = requestAnimationFrame(tick); };
+    this.raf = requestAnimationFrame(tick);
+    return promise;
+  }
+  destroy() { this.stop(); if (this.ro) this.ro.disconnect(); }
+}
+
 /* ── the page ── */
 const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
@@ -135,7 +252,7 @@ function paintScene() {
   const sky = `<defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ED8F0"/><stop offset="1" stop-color="#DDF3FA"/></linearGradient></defs><rect width="1600" height="900" fill="url(#sk)"/><circle cx="1380" cy="130" r="70" fill="#FFE27A"/><g fill="#fff" opacity=".9"><ellipse cx="300" cy="140" rx="90" ry="30"/><ellipse cx="360" cy="120" rx="60" ry="32"/><ellipse cx="980" cy="90" rx="80" ry="26"/></g>
     <path d="M0 520Q300 400 620 480T1200 450T1600 500V900H0z" fill="#A9D98A"/><path d="M0 600Q400 520 800 580T1600 560V900H0z" fill="#8FCB70"/><ellipse cx="800" cy="800" rx="900" ry="140" fill="#7DBE5E"/>`;
   const friends = SPOTS.map((p, i) => { const f = FRIENDS[i]; return `<g transform="translate(${p[0] - 60 * p[2] * 1.4} ${p[1] - 188 * p[2]}) scale(${p[2] * 1.4})"><g class="ani" id="a${i}">${buddySvg(f[0], f[1], 'idle').replace('<svg ', '<svg width="120" height="132" ')}</g></g>${bush(p[0], p[1], p[2])}`; }).join('');
-  $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g>`;
+  $('scene').innerHTML = sky + friends + `<g id="pip" transform="translate(656 360) scale(2.4)"></g><foreignObject id="pipfo" x="575" y="300" width="450" height="400"><div xmlns="http:` + `/` + `/www.w3.org/1999/xhtml" class="pipwrap" id="pipwrap"><canvas id="pipc"></canvas></div></foreignObject>`;
   paintPip(); for (let i = 0; i < outN; i++) $('a' + i).classList.add('out');
 }
 /* a friend's face: excited when they come out, scared just before they drop down, normal otherwise (drawn, no animation files) */
@@ -143,8 +260,18 @@ const faceT = {};
 function friendFace(i, state, ms) { const g = $('a' + i), f = FRIENDS[i]; if (!g || !f) return; clearTimeout(faceT[i]);
   g.innerHTML = buddySvg(f[0], f[1], state).replace('<svg ', '<svg width="120" height="132" ');
   if (ms) faceT[i] = setTimeout(() => friendFace(i, 'idle'), ms); }
-function paintPip() { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60).replace('<svg ', '<svg width="120" height="132" ');
-  if (MINI) { const p = MINI.document.getElementById('ppip'); if (p) p.innerHTML = buddySvg(KIND, {}, mood, (calm % 60) / 60); } }
+/* the big Pip: the real artwork (PipAnimationPlayer), always gently moving; he dances when a friend comes, jumps and shakes when it is too loud.
+   If his files cannot load, the drawn Pip stands in. */
+let PIPP = null, pipReal = false;
+function pipStart() { const c = $('pipc'); if (!c) return; PIPP = new PipAnimationPlayer(c, { base: 'pip/', label: 'Pip the Sprite' });
+  PIPP.ready.then(() => { pipReal = !!(PIPP.idle && PIPP.idle.ok); $('pip').style.display = pipReal ? 'none' : ''; $('pipfo').style.display = pipReal ? '' : 'none'; paintPip(); }); }
+function paintPip() {
+  if (pipReal) {
+    const w = $('pipwrap'); if (w) { w.classList.toggle('startle', mood === 'drop'); }
+    if (mood === 'happy') PIPP.play('dance');
+  } else { const g = $('pip'); if (g) g.innerHTML = buddySvg(KIND, {}, mood, 0).replace('<svg ', '<svg width="120" height="132" '); }
+  if (MINI) { const p = MINI.document.getElementById('ppip'); if (p) { if (pipReal) { if (!p.querySelector('img')) p.innerHTML = '<img src="pip/pip_idle.webp" alt="Pip" style="width:100%;height:100%;object-fit:contain">'; p.classList.toggle('startle', mood === 'drop'); } else p.innerHTML = buddySvg(KIND, {}, mood, 0); } }
+}
 /* Pop out: a tiny window that stays on top of your other windows (Chrome's picture-in-picture for pages), with Pip, the calm minutes,
    the friends that are out, the volume bar and Pause. Elsewhere, a small ordinary window. */
 let MINI = null;
@@ -219,7 +346,7 @@ $('end').onclick = async () => { running = false; setMood('happy'); show(); $('e
   if (r) { say(fin + (r.msg || 'Done!'), 20000); $('end').textContent = 'Close'; $('end').onclick = () => window.close(); }
   else say(HOME && window.opener ? 'Study Hall did not answer. Keep its tab open, or click End quiet time on the Study Sidekick page there.' : 'Open this page from Study Sidekick in Study Hall to give rewards. ' + fin + Math.floor(calm / 60) + ' calm minutes.', 20000); };
 addEventListener('beforeunload', e => { if (running && calm > 30) { report(false); e.preventDefault(); e.returnValue = ''; } });
-$('thr').style.left = thr + '%'; paintScene(); show();
+$('thr').style.left = thr + '%'; paintScene(); pipStart(); show();
 </script>
 </body>
 </html>
