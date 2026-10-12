@@ -80,8 +80,9 @@ const BD_CLOTHES = ['head', 'face', 'neck'];
 /* Pip, Study Hall's own mascot (from Colleen's reference picture, assets/mascot-reference.webp): a soft blue blob with big shiny eyes,
    eyebrows, an open smile, stubby arms and two little feet. Drawn here with gradients until her own art and animations arrive. */
 let BD_GID = 0;
-function pipSvg(wear, state, prog, cls, put) {
-  const g = 'pipg' + (++BD_GID), happy = state === 'happy', drop = state === 'drop', work = state === 'work';
+const PIP_COLORS = { blue: ['#C8D0FB', '#93A2EE', '#6D7DDA'], pink: ['#FCD3E6', '#F49AC4', '#DB6EA3'], mint: ['#C9F2DD', '#86D9AE', '#53B485'], sun: ['#FFF0B8', '#FFD45E', '#E8AE2C'], lilac: ['#E3D3FB', '#B999EE', '#8F6CD6'], peach: ['#FFDCC8', '#FFAE85', '#EE8456'], teal: ['#C7EEF2', '#7FD1DB', '#45A9B8'] };
+function pipSvg(wear, state, prog, cls, put, color) {
+  const pc = PIP_COLORS[color] || PIP_COLORS.blue, g = 'pipg' + (++BD_GID), happy = state === 'happy', drop = state === 'drop', work = state === 'work';
   const c = `url(#${g})`, arm = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="9" ry="15" fill="${c}" transform="rotate(${r} ${x} ${y})"/>`;
   const p = Math.max(0, Math.min(1, prog || 0)), knit = `<rect x="51" y="90" width="18" height="${4 + Math.round(16 * p)}" rx="2" fill="#FFC53D"/>` + Array.from({ length: Math.round(4 * p) }, (_, i) => `<path d="M51 ${94 + i * 4}h18" stroke="#E0524C" stroke-width="1.6"/>`).join('');
   const arms = drop ? arm(16, 84, 12) + arm(104, 84, -12) + '<path d="M8 116l26-6M86 118l26-8" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/><circle cx="110" cy="110" r="8" fill="#E0524C"/>'
@@ -92,7 +93,7 @@ function pipSvg(wear, state, prog, cls, put) {
     : `<g class="bdeyes"><ellipse cx="45" cy="56" rx="11" ry="12" fill="#fff"/><ellipse cx="75" cy="52" rx="12" ry="13" fill="#fff"/><circle cx="${drop ? 45 : 47}" cy="${drop ? 56 : 57}" r="${drop ? 6 : 8}" fill="#15151F"/><circle cx="${drop ? 75 : 77}" cy="${drop ? 52 : 53}" r="${drop ? 6.5 : 8.5}" fill="#15151F"/><circle cx="50" cy="53" r="2.6" fill="#fff"/><circle cx="80" cy="49" r="2.8" fill="#fff"/></g>`;
   const brows = drop ? '<path d="M36 38q8-6 16-2M68 32q8-5 16 0" stroke="#3A3F6B" stroke-width="3.5" fill="none" stroke-linecap="round"/>' : '<path d="M37 41q7-5 14-2M69 35q7-4 14 1" stroke="#3A3F6B" stroke-width="3.5" fill="none" stroke-linecap="round"/>';
   const mouth = drop ? '<ellipse cx="61" cy="72" rx="4" ry="5" fill="#2A1A26"/>' : '<path d="M53 66q8 12 16 0z" fill="#2A1A26"/><ellipse cx="61" cy="72" rx="4.5" ry="2.6" fill="#F06272"/>';
-  return `<svg class="bdsvg ${cls || ''} bd-${state || 'idle'}" viewBox="0 -10 120 132" role="img" aria-label="Pip"><defs><radialGradient id="${g}" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#C8D0FB"/><stop offset=".5" stop-color="#93A2EE"/><stop offset="1" stop-color="#6D7DDA"/></radialGradient></defs>
+  return `<svg class="bdsvg ${cls || ''} bd-${state || 'idle'}" viewBox="0 -10 120 132" role="img" aria-label="Pip"><defs><radialGradient id="${g}" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="${pc[0]}"/><stop offset=".5" stop-color="${pc[1]}"/><stop offset="1" stop-color="${pc[2]}"/></radialGradient></defs>
     ${happy || work || drop ? '' : ''}<path d="M60 16C90 16 102 42 102 66C102 88 98 100 92 106C86 112 78 110 72 104C66 100 54 100 48 104C42 110 34 112 28 106C22 100 18 88 18 66C18 42 30 16 60 16Z" fill="${c}"/>
     <ellipse cx="44" cy="30" rx="14" ry="8" fill="#fff" opacity=".22" transform="rotate(-20 44 30)"/><circle cx="34" cy="72" r="6" fill="#F7A8C8" opacity=".4"/><circle cx="88" cy="68" r="6" fill="#F7A8C8" opacity=".4"/>
     ${brows}${eyes}${mouth}${put('neck')}${arms}${put('face')}${put('head')}</svg>`;
@@ -117,7 +118,7 @@ function buddySvg(kind, wear, state, prog, cls) {
     : happy ? `<ellipse cx="22" cy="58" rx="7" ry="12" fill="${c}" transform="rotate(-30 22 58)"/><ellipse cx="98" cy="58" rx="7" ry="12" fill="${c}" transform="rotate(30 98 58)"/>`
     : state === 'work' ? `${knit}<g class="bdneedles"><path d="M40 80l30 12M80 80l-30 12" stroke="#B5651D" stroke-width="3" stroke-linecap="round"/></g><ellipse class="bdarm l" cx="46" cy="90" rx="8" ry="7" fill="${c}"/><ellipse class="bdarm r" cx="74" cy="90" rx="8" ry="7" fill="${c}"/><path d="M60 112q20 4 40-4" stroke="#E0524C" stroke-width="1.5" fill="none"/><circle cx="102" cy="106" r="8" fill="#E0524C"/><path d="M96 102q6 4 12 0M97 108q5 3 10 0" stroke="#B93A35" stroke-width="1.2" fill="none"/>`
     : `<ellipse cx="26" cy="82" rx="7" ry="11" fill="${c}"/><ellipse cx="94" cy="82" rx="7" ry="11" fill="${c}"/>`;
-  if (kind === 'Pip') { const pw = w, pput = slot => { const it = BD_ITEMS[pw[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, 45).replace(/\{rx\}/g, 75).replace(/\{ey\}/g, 54).replace(/\{lx0\}/g, 36).replace(/\{rx0\}/g, 66).replace(/\{ey0\}/g, 48).replace(/\{bl\}/g, 53).replace(/\{bw\}/g, 14); }; return pipSvg(pw, state, prog, cls, pput); }
+  if (/^Pip/.test(kind || '')) { const pw = w, pput = slot => { const it = BD_ITEMS[pw[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, 45).replace(/\{rx\}/g, 75).replace(/\{ey\}/g, 54).replace(/\{lx0\}/g, 36).replace(/\{rx0\}/g, 66).replace(/\{ey0\}/g, 48).replace(/\{bl\}/g, 53).replace(/\{bw\}/g, 14); }; return pipSvg(pw, state, prog, cls, pput, String(kind).split(':')[1]); }
   const put = slot => { const it = BD_ITEMS[w[slot]]; if (!it) return ''; return it[2].replace(/\{lx\}/g, lx).replace(/\{rx\}/g, rx).replace(/\{ey\}/g, ey).replace(/\{lx0\}/g, lx - 9).replace(/\{rx0\}/g, rx - 9).replace(/\{ey0\}/g, ey - 6).replace(/\{bl\}/g, lx + 8).replace(/\{bw\}/g, rx - lx - 16); };
   return `<svg class="bdsvg ${cls || ''} bd-${state || 'idle'}" viewBox="0 -10 120 132" role="img" aria-label="${esc(kind)}">${ears}${body}${frog ? '' : muzzle}${whisk}${cheeks}${eyes}${frog ? '' : ''}${mouth}${put('neck')}${arms}${put('face')}${put('head')}</svg>`;
 }
@@ -125,8 +126,8 @@ function buddySvg(kind, wear, state, prog, cls) {
 const $ = id => document.getElementById(id);
 let D = {}; try { D = JSON.parse(decodeURIComponent(location.hash.slice(1))) || {}; } catch (e) { D = {}; }
 const HOME = /^https:\/\/[a-z0-9-]+\.script\.googleusercontent\.com$/.test(String(D.o || '')) ? D.o : '';
-const KIND = BD_LOOK[D.kind] || D.kind === 'Pip' ? D.kind : 'Pip';
-const FRIENDS = [['Bunny', { head: 'flowers' }], ['Fox', {}], ['Frog', { head: 'party' }], ['Bear', { neck: 'scarf' }], ['Cat', { head: 'bow' }], ['Otter', { face: 'glasses' }], ['Bunny', { neck: 'bowtie' }], ['Frog', { head: 'crown' }]].filter(f => f[0] !== KIND).concat([['Otter', { head: 'cap' }]]).slice(0, 8);
+const KIND = D.kind && (BD_LOOK[D.kind] || /^Pip/.test(D.kind)) ? D.kind : 'Pip';
+const FRIENDS = [['Pip:pink', { head: 'bow' }], ['Pip:mint', { head: 'party' }], ['Pip:sun', { neck: 'scarf' }], ['Pip:lilac', { face: 'glasses' }], ['Pip:peach', { head: 'flowers' }], ['Pip:teal', { head: 'cap' }], ['Pip:pink', { neck: 'bowtie' }], ['Pip:mint', { head: 'crown' }]];      /* Pip's friends: Pips in other colours */
 const SPOTS = [[150, 640, 1], [420, 600, .85], [1180, 600, .85], [1450, 640, 1], [290, 470, .65], [1320, 470, .65], [620, 420, .5], [980, 420, .5]];
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 let thr = +(store('cs-thr') || 60), every = +(store('cs-every') || 45), running = false, calm = 0, streak = 0, outN = 0, lvl = 0, loudFor = 0, lastHide = 0, mood = 'work', moodT = 0, stream = null;
@@ -158,12 +159,12 @@ async function micOn() {
   requestAnimationFrame(tick);
 }
 function tooLoud() { lastHide = Date.now(); streak = 0; $('meterbox').classList.remove('loud'); void $('meterbox').offsetWidth; $('meterbox').classList.add('loud'); setMood('drop', 2500);
-  if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! ' + FRIENDS[outN][0] + ' hid.'); } else say('Too loud! Shh…'); show(); }
+  if (outN > 0) { outN--; const a = $('a' + outN); a.classList.add('hide'); a.classList.remove('out'); setTimeout(() => a.classList.remove('hide'), 400); say('Too loud! A friend hid.'); } else say('Too loud! Shh…'); show(); }
 setInterval(() => {
   if (moodT && Date.now() > moodT) setMood(running ? 'work' : 'idle');
   if (!running) return;
   if (lvl <= thr) { calm++; streak++; if (calm % 60 === 0) paintPip(); }
-  if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say(FRIENDS[outN][0] + ' came out to say hi!'); outN++; streak = 0; setMood('happy', 2600);
+  if (streak >= every && outN < FRIENDS.length) { $('a' + outN).classList.add('out'); say('A friend came out to say hi!'); outN++; streak = 0; setMood('happy', 2600);
     if (outN === FRIENDS.length) setTimeout(() => { say('Everyone came out! Amazing, class! 🎉', 6000); setMood('happy', 6000); }, 1500); }
   if (++beat % 10 === 0) report(false).then(r => { const p = r && r.live, el = $('ontask'); if (!el) return; el.classList.toggle('hidden', !p); if (p) { $('pct').textContent = p.pct + '%'; $('pctn').textContent = p.on + ' of ' + p.total + ' students'; } });
   show();
