@@ -19,6 +19,7 @@
   .bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden } .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s }
   .card { background: var(--card); border-radius: 22px; padding: 26px 22px; box-shadow: 0 4px 18px rgba(0, 0, 0, .08); display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center }
   .ask { color: var(--muted); font-weight: 800; letter-spacing: .02em } .prompt { font: 700 clamp(1.8rem, 6vw, 2.6rem)/1.15 Fraunces, Georgia, serif; overflow-wrap: anywhere }
+  .gif { margin: 8px auto 4px; width: min(420px, 100%) } .gif img { width: 100%; max-height: 46vh; object-fit: contain; border-radius: 14px; background: #fff; display: block }
   .mic { width: 120px; height: 120px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; cursor: pointer; display: grid; place-items: center; box-shadow: 0 6px 0 rgba(0, 0, 0, .18); transition: transform .1s }
   .mic:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0, 0, 0, .18) } .mic svg { width: 54px; height: 54px }
   .mic.on { background: var(--bad); animation: pulse 1.1s ease-in-out infinite } @keyframes pulse { 50% { box-shadow: 0 0 0 18px rgba(214, 69, 69, .18) } }
@@ -114,11 +115,12 @@ function start() {
   const paint = () => {
     const w = words[i];
     app.innerHTML = `<header><h1>Say It${D.n ? ' · ' + esc(D.n) : ''}</h1><span class="count">${i + 1} of ${words.length}</span></header><div class="bar"><i style="width:${100 * i / words.length}%"></i></div>
-      <div class="card"><p class="ask">Say the word for</p><p class="prompt">${esc(w[1] || '?')}</p>
+      <div class="card">${Array.isArray(w[3]) && w[3].length ? `<p class="ask">Say the English word for this sign</p><div class="gif"><img id="gif" alt="A sign"></div>` : `<p class="ask">Say the word for</p><p class="prompt">${esc(w[1] || '?')}</p>`}
         <button class="mic" id="mic" aria-label="Tap, then say the word">${MIC}</button><div class="lvl" aria-hidden="true"><i id="lvl"></i></div><p class="micname" id="micname"></p><p class="hint" id="hint">Tap the microphone, then say the word.</p>
         <div class="result" id="res"></div>
         <div class="row"><button class="btn" id="skip">Skip</button></div></div>
       <p class="note">${RECORDS ? '🔴 Your teacher would like a recording. While the microphone is on, what you say is recorded. At the end you choose whether to send it. Keep the Study Hall tab open: your recording goes back through it.' : 'Your voice is only listened to by your browser to check the word. Nothing is recorded or saved.'}</p>`;
+    if (Array.isArray(w[3]) && w[3].length) { const g = $('gif'); let k = 0; g.onerror = () => { if (++k < w[3].length) g.src = w[3][k]; else g.replaceWith(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'This sign could not load. Skip it.' })); }; g.src = w[3][0]; }      /* ASL Study (2026-10-16): the sign's GIF is the question; its English word is the answer. A list of addresses, tried in order */
     $('mic').onclick = () => listen(w); $('skip').onclick = () => { res.push([w, 0, '']); window.LOG.push([w[0], 0, '']); next(); }; showMic();
   };
   const next = () => { i++; tries = 0; if (i < words.length) paint(); else done(); };
