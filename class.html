@@ -49,7 +49,7 @@
   <div class="pill row"><svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="#E4E7EE" stroke-width="7"/><circle id="ring" cx="27" cy="27" r="22" fill="none" stroke="#2E9D63" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2" transform="rotate(-90 27 27)"/></svg><div><div class="small">Next friend</div><b id="out">0 of 10 friends here</b></div></div>
   <div class="pill hidden" id="ontask"><div class="small">On task right now</div><div class="big" id="pct">0%</div><div class="small" id="pctn"></div></div><div class="pill"><div class="small">Score</div><div class="big" id="score">–</div><div class="small" id="scoren"></div></div><span class="grow"></span><button id="pop">Pop out</button><button id="pause">Pause</button><button id="full">Full screen</button><button id="end" title="Finish quiet time">Finish</button></div>
 <div id="msg" role="status"></div>
-<div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><span class="small grow" id="mic"></span><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
+<div class="bar bottom"><div class="pill meter" id="meterbox"><div class="row"><b>Room volume</b><select id="micsel" class="grow" aria-label="Microphone" title="Microphone" style="min-width:0;max-width:260px;font:inherit;font-size:13px"><option value="">Default microphone</option></select><span class="small">Too loud line</span><select id="every" aria-label="A new friend every"><option value="20">New friend every 20 s</option><option value="30">every 30 s</option><option value="45" selected>every 45 s</option><option value="60">every 1 min</option><option value="90">every 1½ min</option><option value="120">every 2 min</option></select></div>
   <div class="track"><div class="fill" id="fill"></div><div class="mask" id="mask"></div><div class="thr" id="thr"></div></div><input type="range" id="thrin" min="10" max="95" value="60" aria-label="Too loud line"></div></div>
 <div id="start"><div class="card"><h1>Class Sidekick</h1><p>Keep the room calm and friends come out to join your sidekick. Too loud, and the newest friend hides. This page listens to how loud the room is. It never records.</p><button class="main" id="go">Start quiet time</button><p class="small" id="err" style="margin:12px 0 0"></p></div></div>
 <script>
@@ -392,10 +392,22 @@ function score() { const could = Math.min(FRIENDS.length, Math.floor(run / every
 function show() { if (MINI) { const d = MINI.document, m = d.getElementById('pmins'); if (m) { m.textContent = Math.floor(calm / 60); d.getElementById('pdots').innerHTML = ORDER.map(n => FRIENDS[n]).map((f, i) => `<i class="${i < outN ? 'on' : ''}" style="--c:${(PIP_COLORS[f[0].split(':')[1]] || PIP_COLORS.blue)[1]}"></i>`).join(''); d.getElementById('pthr').style.left = thr + '%'; d.getElementById('ppause').textContent = running ? 'Pause' : 'Resume'; } }
   $('mins').textContent = Math.floor(calm / 60); { const sc = score(); $('score').textContent = sc.could ? sc.pct + '% · ' + sc.letter : '–'; $('scoren').textContent = sc.could ? outN + ' of ' + sc.could + ' friends' : 'Starts with the first friend'; } $('out').textContent = outN + ' of ' + FRIENDS.length + ' friends here'; $('ring').setAttribute('stroke-dashoffset', String(138.2 * (1 - Math.min(1, streak / every)))); $('pause').textContent = running ? 'Pause' : 'Resume'; }
 /* the room's volume, 0 to 100, from the microphone (no recording: only the loudness of each moment is measured) */
+/* which microphone (Colleen, 2026-10-17: choosing one in Chrome did not switch it): a menu on the bar, remembered on this computer;
+   changing it restarts the listening right away */
+async function micList() {
+  try { const sel = $('micsel'), cur = store('cs-mic') || '', devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    const live = stream && stream.getAudioTracks()[0], liveId = live && live.getSettings ? live.getSettings().deviceId : '';
+    sel.innerHTML = '<option value="">Default microphone</option>' + devs.filter(d => d.deviceId && d.deviceId !== 'default').map((d, i) => '<option value="' + d.deviceId.replace(/"/g, '') + '">' + (d.label || 'Microphone ' + (i + 1)).replace(/[<&]/g, '') + '</option>').join('');
+    sel.value = [...sel.options].some(o => o.value === (cur || liveId)) ? (cur || liveId) : ''; } catch (e) {}
+}
 async function micOn() {
-  stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  const want = store('cs-mic') || '', audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+  if (want) audio.deviceId = { exact: want };
+  let s2; try { s2 = await navigator.mediaDevices.getUserMedia({ audio }); } catch (e) { if (!want) throw e; store('cs-mic', ''); delete audio.deviceId; s2 = await navigator.mediaDevices.getUserMedia({ audio }); }      /* that microphone is gone: the default */
+  if (stream) stream.getTracks().forEach(t => t.stop()); if (window.KEEP) { try { window.KEEP[0].close(); } catch (e) {} }
+  stream = s2;
   const ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(), buf = new Float32Array(1024); an.fftSize = 1024;
-  ctx.createMediaStreamSource(stream).connect(an); $('mic').textContent = (stream.getAudioTracks()[0] || {}).label || '';
+  ctx.createMediaStreamSource(stream).connect(an); micList();
   /* measured in the audio callback, not on screen refreshes: Chrome keeps this running when the tab is in the background (the pop-out window) */
   const sp = ctx.createScriptProcessor(2048, 1, 1), mute = ctx.createGain(); mute.gain.value = 0;
   ctx.createMediaStreamSource(stream).connect(sp); sp.connect(mute); mute.connect(ctx.destination); window.KEEP = [ctx, sp, mute];
@@ -438,6 +450,9 @@ function report(fin) { if (!HOME || !window.opener || !D.id) return Promise.reso
 addEventListener('message', e => { if (e.origin !== HOME || !e.data || e.data.type !== 'class-quiet-ok') return; const w = waits[e.data.rid]; if (w) { delete waits[e.data.rid]; w(e.data); } });
 $('go').onclick = async () => { $('err').textContent = ''; try { await micOn(); } catch (e) { $('err').textContent = 'The microphone is blocked (' + e.name + '). Click the lock or microphone icon in the address bar, choose Allow, then reload.'; return; }
   $('start').classList.add('hidden'); running = true; setMood('work'); say('Shh… let’s see who comes out!'); show(); };
+$('micsel').onchange = async e => { store('cs-mic', e.target.value); if (!stream) return; try { await micOn(); say('Listening with the new microphone.'); } catch (x) { say('That microphone could not start.'); } };
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', micList);
+micList();
 $('pause').onclick = () => { running = !running; setMood(running ? 'work' : 'idle'); show(); };
 $('pop').onclick = () => popOut();
 $('full').onclick = () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) {} };
